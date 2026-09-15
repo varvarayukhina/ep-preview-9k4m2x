@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EpiPrint · Хранилище</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="storage">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar" data-title="Хранилище"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">Секвенатор → хранилище</div>
+          <h1>Хранилище</h1>
+          <p>Новые образцы с секвенатора — сверху: отметьте и запустите пачкой, они обработаются последовательно на кластере (без ручного протыкивания). Прогоны — запуски секвенатора — в архиве ниже, для прослеживаемости.</p>
+        </div>
+        <button class="btn" id="refreshBtn"></button>
+      </div>
+
+      <div class="card" id="newCard">
+        <div class="card__head">
+          <div class="section-title" id="newTitle"></div>
+          <div class="hstack">
+            <label class="hstack" style="font-size:.82rem"><input type="checkbox" class="checkbox" id="selectAll"> Выбрать все</label>
+            <button class="btn btn--sm" id="runSelBtn" disabled></button>
+            <button class="btn btn--primary btn--sm" id="runAllBtn"></button>
+          </div>
+        </div>
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th style="width:34px"></th><th>Образец (папка)</th><th>Прогон</th><th>Набор</th><th>Размер</th><th>Статус</th></tr></thead>
+          <tbody id="newRows"></tbody>
+        </table></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card__head" id="archHead" style="cursor:pointer">
+          <div class="section-title" id="archTitle"></div>
+          <span class="hstack muted" style="font-size:.8rem"><span id="archMeta"></span><span id="archChev" style="display:inline-flex;transition:transform .15s"></span></span>
+        </div>
+        <div id="archBody" style="display:none"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+  const q = sel => document.querySelector(sel);
+  q('#refreshBtn').innerHTML = icon('refresh-cw') + ' Обновить';
+  q('#newTitle').innerHTML = icon('folder') + ' Новые образцы <span class="badge badge--warn" id="newCount"></span>';
+  q('#runSelBtn').innerHTML = icon('play') + ' Запустить выбранные';
+  q('#runAllBtn').innerHTML = icon('play') + ' Запустить все новые';
+  q('#archTitle').innerHTML = icon('hard-drive') + ' Прогоны — архив запусков секвенатора';
+  q('#archChev').innerHTML = icon('chevron-right');
+
+  const selected = new Set();
+  const newList = ()=>{ const a=[]; STORAGE.forEach(r=> r.files.forEach(f=>{ if(!f.launched) a.push({run:r.run, f}); })); return a; };
+  const newRowsEl = q('#newRows');
+
+  function updSel(){
+    const n = selected.size;
+    q('#runSelBtn').disabled = n===0;
+    q('#runSelBtn').innerHTML = `${icon('play')} Запустить выбранные${n?' · '+n:''}`;
+  }
+  function drawNew(){
+    const list = newList();
+    q('#newCount').textContent = list.length;
+    q('#runAllBtn').disabled = list.length===0;
+    q('#selectAll').disabled = list.length===0;
+    newRowsEl.innerHTML = list.length ? list.map(({run,f})=>`
+      <tr>
+        <td><input type="checkbox" class="checkbox nchk" data-name="${f.basename}" ${selected.has(f.basename)?'checked':''}></td>
+        <td class="id">${icon('folder')} ${f.basename}</td>
+        <td><span class="chip">${run}</span></td>
+        <td><span class="chip">${f.kit}</span></td>
+        <td class="num muted">${f.sizeGb} ГБ</td>
+        <td><span class="badge badge--muted"><span class="dot"></span>Готов к запуску</span></td>
+      </tr>`).join('')
+      : `<tr><td colspan="6" class="tbl__empty">${icon('check')} Новых образцов нет — всё запущено</td></tr>`;
+    newRowsEl.querySelectorAll('.nchk').forEach(chk=> chk.addEventListener('change', ()=>{ chk.checked?selected.add(chk.dataset.name):selected.delete(chk.dataset.name); updSel(); }));
+    updSel();
+  }
+  function drawArch(){
+    q('#archMeta').textContent = `${STORAGE.length} прогонов · `;
+    q('#archBody').innerHTML = STORAGE.map(r=>{
+      const total=r.files.length, nw=r.files.filter(f=>!f.launched).length;
+      const rows = r.files.map(f=>`<tr>
+        <td class="id">${icon('folder')} ${f.basename}</td><td><span class="chip">${f.kit}</span></td>
+        <td class="num muted">${f.sizeGb} ГБ</td>
+        <td>${f.launched? statusBadge(f.status):'<span class="badge badge--muted"><span class="dot"></span>Готов</span>'}</td></tr>`).join('');
+      return `<div style="border-top:1px solid var(--line-2)">
+        <div class="hstack" style="padding:11px 18px;justify-content:space-between">
+          <div class="hstack"><b class="mono">${r.run}</b><span class="chip">${r.ref}</span>${nw?`<span class="badge badge--warn">${nw} новых</span>`:`<span class="badge badge--pass">${icon('check')}все запущены</span>`}</div>
+          <span class="muted" style="font-size:.78rem">${r.created} · ${total} обр.</span>
+        </div>
+        <div class="table-wrap" style="padding:0 10px 10px"><table class="tbl">
+          <thead><tr><th>Образец (папка)</th><th>Набор</th><th>Размер</th><th>Статус</th></tr></thead><tbody>${rows}</tbody></table></div>
+      </div>`;
+    }).join('');
+  }
+  function launch(names){
+    if(!names.length){ toast('Нет готовых к запуску образцов'); return; }
+    STORAGE.forEach(r=> r.files.forEach(f=>{ if(names.includes(f.basename)){ f.launched=true; f.status='queued'; }}));
+    selected.clear(); q('#selectAll').checked=false;
+    drawNew(); drawArch();
+    toast(`${names.length} образц(ов) поставлено в очередь → обработка последовательно на кластере`);
+  }
+
+  q('#selectAll').addEventListener('change', e=>{
+    newRowsEl.querySelectorAll('.nchk').forEach(chk=>{ chk.checked=e.target.checked; chk.checked?selected.add(chk.dataset.name):selected.delete(chk.dataset.name); }); updSel();
+  });
+  q('#runSelBtn').addEventListener('click', ()=> launch([...selected]));
+  q('#runAllBtn').addEventListener('click', ()=> launch(newList().map(x=>x.f.basename)));
+  q('#refreshBtn').addEventListener('click', ()=> toast('Хранилище обновлено'));
+  q('#archHead').addEventListener('click', ()=>{
+    const b=q('#archBody'), open=b.style.display!=='none';
+    b.style.display=open?'none':''; q('#archChev').style.transform=open?'':'rotate(90deg)';
+  });
+
+  drawNew(); drawArch();
+</script>
+</body>
+</html>

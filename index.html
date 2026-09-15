@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EpiPrint · Главная</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="index">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar" data-title="Главная"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">Обзор системы</div>
+          <h1>Панель мониторинга</h1>
+          <p>Состояние обработки образцов, монтирований и очереди. Единый пайплайн метилирования cfDNA, референс hg38.</p>
+        </div>
+        <div class="hstack">
+          <a class="btn" href="storage.html" id="storageBtn"></a>
+          <a class="btn btn--primary" href="queue.html" id="queueBtn"></a>
+        </div>
+      </div>
+
+      <div class="grid grid-4" id="stats" style="margin-bottom:16px"></div>
+
+      <div class="grid" style="grid-template-columns:1.35fr 1fr; align-items:start">
+        <div class="card">
+          <div class="card__head">
+            <div class="section-title" id="mountTitle"></div>
+            <span class="badge badge--muted" id="mountSummary"></span>
+          </div>
+          <div class="card__body">
+            <p class="muted" style="margin-top:0;font-size:.83rem">Хранилище монтируется к вебу только через сервер-зеркало (требование ИБ). Если папка «отвалилась» — видно здесь, а не по факту недоступности образца.</p>
+            <div class="vstack" id="mounts"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__head"><div class="section-title" id="thTitle"></div></div>
+          <div class="card__body">
+            <div id="throughput"></div>
+            <hr class="divider">
+            <div class="grid grid-2" id="miniStats"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card__head">
+          <div class="section-title" id="recentTitle"></div>
+          <a class="btn btn--sm btn--ghost" href="samples.html">Все образцы</a>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Seq ID</th><th>Прогон</th><th>Набор</th><th>Статус</th><th>QC</th>
+              <th>Вероятность</th><th>Локализация</th><th>Дата</th>
+            </tr></thead>
+            <tbody id="recentRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+  document.getElementById('storageBtn').innerHTML = icon('hard-drive') + ' Хранилище';
+  document.getElementById('mountTitle').innerHTML  = icon('server') + ' Мониторинг монтирований';
+  document.getElementById('thTitle').innerHTML     = icon('activity') + ' Пропускная способность, 7 дней';
+  document.getElementById('recentTitle').innerHTML = icon('microscope') + ' Последние образцы';
+
+  function tile(label, value, ic, sub){
+    return `<div class="stat">
+      <div class="stat__label"><span class="ic">${icon(ic)}</span>${label}</div>
+      <div class="stat__value">${value}</div>
+      <div class="stat__sub">${sub}</div>
+    </div>`;
+  }
+  document.getElementById('stats').innerHTML = [
+    tile('Всего образцов', STATS.total, 'microscope', `${STATS.done} завершено · ${STATS.error} с ошибкой`),
+    tile('В обработке / очереди', STATS.processing+STATS.queued, 'clock', `${STATS.processing} активно · ${STATS.queued} ждут`),
+    tile('QC Pass', STATS.qcPassRate+'%', 'shield-check', `по ${STATS.done} завершённым образцам`),
+    tile('Высокий риск', STATS.highRisk, 'alert-triangle', `образцов со скором ≥ 70%`),
+  ].join('');
+
+  document.getElementById('queueBtn').innerHTML = icon('list-checks') + ` Очередь · ${STATS.processing+STATS.queued}`;
+
+  // mounts
+  const okCount = MOUNTS.filter(m=>m.status==='ok').length;
+  document.getElementById('mountSummary').textContent = `${okCount}/${MOUNTS.length} в норме`;
+  document.getElementById('mounts').innerHTML = MOUNTS.map(m=>`
+    <div class="mount">
+      <span class="mount__dot ${m.status}"></span>
+      <div><div class="mount__name">${m.name}</div><div class="mount__path">${m.path}</div></div>
+      <div class="spacer"></div>
+      <span class="chip">${m.note}</span>
+      <span class="badge badge--${m.status==='ok'?'pass':m.status==='warn'?'warn':'fail'}">${m.status==='ok'?'online':m.status==='warn'?'нагрузка':'offline'}</span>
+    </div>`).join('');
+
+  // throughput bars
+  const th = STATS.throughput7d, max = Math.max(...th);
+  const days = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const W=100/th.length;
+  document.getElementById('throughput').innerHTML = `
+    <svg viewBox="0 0 320 120" width="100%" height="120" preserveAspectRatio="none" style="overflow:visible">
+      ${th.map((v,i)=>{
+        const h=v/max*88, x=i*(320/th.length)+8, w=320/th.length-16, y=100-h;
+        return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="var(--brand-600)" opacity="${i===th.length-1?1:.5}"></rect>
+                <text x="${x+w/2}" y="${y-5}" font-size="10" fill="var(--ink-2)" text-anchor="middle" font-family="monospace">${v}</text>
+                <text x="${x+w/2}" y="115" font-size="9" fill="var(--ink-3)" text-anchor="middle">${days[i]}</text>`;
+      }).join('')}
+    </svg>`;
+  document.getElementById('miniStats').innerHTML = `
+    <div><div class="muted" style="font-size:.76rem">Обратная связь получена</div><div style="font-family:var(--disp);font-weight:800;font-size:1.4rem">${STATS.withFb} <span class="muted" style="font-size:.8rem;font-weight:400">образцов</span></div></div>
+    <div><div class="muted" style="font-size:.76rem">Ср. время пайплайна</div><div style="font-family:var(--disp);font-weight:800;font-size:1.4rem">47 <span class="muted" style="font-size:.8rem;font-weight:400">мин</span></div></div>`;
+
+  // recent samples
+  const recent = [...SAMPLES].sort((a,b)=>b.id-a.id).slice(0,7);
+  document.getElementById('recentRows').innerHTML = recent.map(s=>`
+    <tr class="clickable" onclick="location.href='sample.html?id=${s.id}'">
+      <td class="id">${s.seqId}</td>
+      <td class="mono">${s.run}</td>
+      <td><span class="chip">${s.kit.label}</span></td>
+      <td>${statusBadge(s.status)}</td>
+      <td>${s.status==='done'? qcBadge(s.qc.verdict) : '<span class="muted">—</span>'}</td>
+      <td>${s.score? `<b style="color:${s.score.risk==='high'?'var(--risk-high)':s.score.risk==='medium'?'var(--risk-med)':'var(--risk-low)'}">${pct(s.score.cancerProb)}</b>` : '<span class="muted">—</span>'}</td>
+      <td>${s.score && s.score.cancerProb>0.5 ? cancerLabel(s.score.topType) : '<span class="muted">—</span>'}</td>
+      <td class="mono muted">${s.date}</td>
+    </tr>`).join('');
+</script>
+</body>
+</html>

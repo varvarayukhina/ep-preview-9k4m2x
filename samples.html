@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EpiPrint · Образцы</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="samples">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar" data-title="Образцы"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">Реестр</div>
+          <h1>Образцы</h1>
+          <p>Все образцы теста. Клик по строке — карточка образца со скором, профилем метилирования, QC и обратной связью.</p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <label class="topbar__search" id="searchLabel" style="min-width:260px">
+          <input class="input" style="border:0;padding:0;width:100%" placeholder="Seq ID, код пациента…" id="q">
+        </label>
+        <select class="select" id="fStatus">
+          <option value="">Все статусы</option>
+          <option value="done">Завершён</option>
+          <option value="processing">В обработке</option>
+          <option value="queued">В очереди</option>
+          <option value="error">Ошибка</option>
+        </select>
+        <select class="select" id="fKit">
+          <option value="">Все наборы</option>
+          <option>Vazyme</option><option>Rasel</option><option>Burning Rock</option>
+        </select>
+        <select class="select" id="fRisk">
+          <option value="">Любой риск</option>
+          <option value="high">Высокий</option>
+          <option value="medium">Средний</option>
+          <option value="low">Низкий</option>
+        </select>
+        <div class="toolbar__spacer"></div>
+        <span class="badge badge--muted" id="count"></span>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Seq ID</th><th>Прогон</th><th>Набор</th><th>Пациент</th>
+              <th>Статус</th><th>QC</th><th>Вероятность</th><th>Риск</th>
+              <th>Локализация</th><th>Обр. связь</th><th>Дата</th>
+            </tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+  const qInput = document.getElementById('q');
+  qInput.value = qs('q') || '';
+  document.getElementById('searchLabel').insertAdjacentHTML('afterbegin', icon('search'));
+
+  function fbCell(s){
+    const fb = getFeedback(s);
+    if (!fb.confirmed) return '<span class="muted">—</span>';
+    return fb.confirmed==='yes'
+      ? `<span class="badge badge--pass">${icon('check')}подтв.</span>`
+      : `<span class="badge badge--muted">${icon('x')}не подтв.</span>`;
+  }
+
+  function apply(){
+    const q = qInput.value.trim().toLowerCase();
+    const st = document.getElementById('fStatus').value;
+    const kit = document.getElementById('fKit').value;
+    const risk = document.getElementById('fRisk').value;
+
+    const list = SAMPLES.filter(s=>{
+      if (q && !(s.seqId.toLowerCase().includes(q) || s.patientCode.toLowerCase().includes(q) || String(s.patientNo).toLowerCase().includes(q))) return false;
+      if (st && s.status!==st) return false;
+      if (kit && s.kit.label!==kit) return false;
+      if (risk && (!s.score || s.score.risk!==risk)) return false;
+      return true;
+    }).sort((a,b)=>b.id-a.id);
+
+    document.getElementById('count').textContent = `Показано: ${list.length} из ${SAMPLES.length}`;
+    const tb = document.getElementById('rows');
+    if (!list.length){ tb.innerHTML = `<tr><td colspan="11" class="tbl__empty">Ничего не найдено</td></tr>`; return; }
+    tb.innerHTML = list.map(s=>`
+      <tr class="clickable" onclick="location.href='sample.html?id=${s.id}'">
+        <td class="id">${s.seqId}</td>
+        <td class="mono muted">${s.run}</td>
+        <td><span class="chip">${s.kit.label}</span></td>
+        <td class="mono" style="font-size:.8rem">${s.patientCode}<div class="muted" style="font-size:.72rem">${s.sex}, ${s.age} л.</div></td>
+        <td>${statusBadge(s.status)}</td>
+        <td>${s.status==='done'? qcBadge(s.qc.verdict) : '<span class="muted">—</span>'}</td>
+        <td>${s.score? `<b style="color:${s.score.risk==='high'?'var(--risk-high)':s.score.risk==='medium'?'var(--risk-med)':'var(--risk-low)'}">${pct(s.score.cancerProb)}</b>`:'<span class="muted">—</span>'}</td>
+        <td>${s.score? riskBadge(s.score.risk) : '<span class="muted">—</span>'}</td>
+        <td>${s.score && s.score.cancerProb>0.5 ? cancerLabel(s.score.topType) : '<span class="muted">—</span>'}</td>
+        <td>${fbCell(s)}</td>
+        <td class="mono muted">${s.date}</td>
+      </tr>`).join('');
+  }
+
+  ['input','change'].forEach(ev=>{
+    qInput.addEventListener(ev, apply);
+    ['fStatus','fKit','fRisk'].forEach(id=> document.getElementById(id).addEventListener(ev, apply));
+  });
+  apply();
+</script>
+</body>
+</html>

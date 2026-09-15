@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EpiPrint · Образец</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="samples">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar" data-title="Карточка образца"></header>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+  const s = sampleById(qs('id')) || SAMPLES[0];
+  const c = document.getElementById('content');
+
+  // ---- шапка ----
+  const header = `
+    <a class="btn btn--sm btn--ghost" href="samples.html" style="margin-bottom:14px">${icon('arrow-left')} К образцам</a>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card__body" style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:flex-start">
+        <div>
+          <div class="eyebrow">Образец · ${s.kit.method}</div>
+          <div style="font-family:var(--disp);font-weight:800;font-size:1.4rem;letter-spacing:-.02em">${s.seqId}</div>
+          <div class="wrap-gap" style="margin-top:10px">
+            ${statusBadge(s.status)}
+            ${s.status==='done'? qcBadge(s.qc.verdict):''}
+            ${s.score? riskBadge(s.score.risk):''}
+            <span class="chip">${s.kit.label}</span>
+            <span class="chip">${s.ref}</span>
+          </div>
+        </div>
+        <dl class="kv" style="min-width:280px">
+          <dt>Прогон</dt><dd>${s.run}</dd>
+          <dt>Код пациента</dt><dd>${s.patientCode}</dd>
+          <dt>Инд. номер</dt><dd>${s.patientNo}</dd>
+          <dt>Пол / возраст</dt><dd>${s.sex}, ${s.age} лет</dd>
+          <dt>Контрагент</dt><dd style="font-family:var(--body)">${s.contractor}</dd>
+          <dt>Дата</dt><dd>${s.date}</dd>
+        </dl>
+        <div class="vstack" style="min-width:190px">
+          <button class="btn" onclick="toast('Скачивание profile.tsv (~1.5 ГБ)')">${icon('table')} Профиль TSV</button>
+          <button class="btn" onclick="toast('Скачивание qc.json')">${icon('file-json')} QC JSON</button>
+          <a class="btn btn--primary" href="report.html?id=${s.id}">${icon('file-text')} Заключение</a>
+        </div>
+      </div>
+    </div>`;
+
+  // ---- если не завершён ----
+  if (s.status!=='done'){
+    const stageIdx = s.status==='processing'? 4 : s.status==='error'? 3 : 0;
+    c.innerHTML = header + `
+      <div class="card"><div class="card__body">
+        <div class="section-title" style="margin-bottom:14px">${icon('clock')} Обработка пайплайна</div>
+        <div class="stage-list">
+          ${PIPELINE_STAGES.map((name,i)=>{
+            let st = i<stageIdx?'done': (i===stageIdx && s.status==='processing')?'active':(i===stageIdx&&s.status==='error')?'error':'wait';
+            const mark = st==='done'?icon('check'): st==='error'?icon('x'): st==='active'?'':(i+1);
+            return `<div class="stage-row">
+              <div class="stage-ic ${st}">${mark}</div>
+              <div class="stage-name">${name}</div>
+              <div class="stage-time">${st==='done'?'готово': st==='active'?'выполняется…': st==='error'?'ошибка':'ожидает'}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${s.status==='error'? `<div class="report-block" style="border-color:var(--fail);background:var(--fail-bg);margin-top:16px">
+          <b style="color:var(--fail)">Пайплайн остановлен на стадии «${PIPELINE_STAGES[stageIdx]}».</b>
+          <div class="muted" style="margin-top:4px;font-size:.84rem">Требуется проверка логов. Частая причина — качество пробоподготовки (низкая конверсия / покрытие), реанализ тем же пайплайном не поможет.</div>
+        </div>`:''}
+        <div class="wrap-gap" style="margin-top:16px">
+          <a class="chip" onclick="toast('status.log')" style="cursor:pointer">status.log</a>
+          <a class="chip" onclick="toast('err.log')" style="cursor:pointer">err.log</a>
+          <a class="chip" onclick="toast('log')" style="cursor:pointer">log</a>
+        </div>
+      </div></div>`;
+  } else {
+    // ---- результат ----
+    const sc = s.score;
+    const summary = sc.cancerProb>0.5
+      ? `Классификатор оценивает вероятность онкопроцесса как <b>${pct(sc.cancerProb)}</b>. Наиболее вероятная локализация — <b>${cancerLabel(sc.topType)}</b> (${pct(sc.localization[sc.topType],1)}).`
+      : `Классификатор оценивает вероятность онкопроцесса как <b>${pct(sc.cancerProb)}</b> — признаков онкопроцесса не выявлено. Локализационный слой не активируется ниже порога.`;
+
+    c.innerHTML = header + `
+      <div class="grid" style="grid-template-columns:1.15fr 1fr;align-items:start;margin-bottom:16px">
+        <div class="card">
+          <div class="card__head"><div class="section-title">${icon('activity')} Скор классификатора</div>
+            <span class="badge badge--muted">2-слойная модель</span></div>
+          <div class="card__body">
+            <div class="gauge-wrap">
+              ${gaugeHtml(sc.cancerProb, sc.risk)}
+              <div>
+                <div style="margin-bottom:8px">${riskBadge(sc.risk)}</div>
+                <div class="muted" style="font-size:.88rem;line-height:1.5">${summary}</div>
+              </div>
+            </div>
+            <hr class="divider">
+            <div class="section-title" style="font-size:.86rem;margin-bottom:12px">${icon('dna')} Слой 2 — локализация</div>
+            ${localizationBars(sc.localization, sc.cancerProb>0.5? sc.topType : null)}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__head"><div class="section-title">${icon('shield-check')} Контроль качества</div>${qcBadge(s.qc.verdict)}</div>
+          <div class="card__body">
+            <div id="qcList"></div>
+            ${s.qc.failed.length? `<div class="report-block" style="border-color:var(--warn);background:var(--warn-bg);margin:14px 0 0;padding:12px 14px">
+              <b style="color:var(--warn)">Не прошли пороги:</b> <span style="font-size:.84rem">${s.qc.failed.join(', ')}</span>
+              <div class="muted" style="font-size:.78rem;margin-top:4px">Метрики отражают качество пробоподготовки; решение о пересеквенировании — за лабораторией.</div>
+            </div>`:''}
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card__head"><div class="section-title">${icon('table')} Профиль метилирования по маркерным регионам</div>
+          <span class="badge badge--muted">для биоинформатика</span></div>
+        <div class="card__body">
+          <p class="muted" style="margin-top:0;font-size:.83rem">Строка «Образец» сравнивается с литературными нормой и опухолью. У образцов cfDNA профиль тяготеет к норме; при онкопроцессе — сдвиг части регионов к «опухолевому» паттерну.</p>
+          <div id="heatmap"></div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr 1.1fr;align-items:start">
+        <div class="card">
+          <div class="card__head"><div class="section-title">${icon('microscope')} Покрытие</div></div>
+          <div class="card__body">
+            <div class="grid grid-2" style="gap:12px">
+              ${covTile('Ср. глубина', s.qc.metrics.find(m=>m.key==='meanDepth').value+(s.kit.method==='WGBS'?'×':'×'))}
+              ${covTile('Равномерность', s.qc.metrics.find(m=>m.key==='uniformity').value+'%')}
+              ${covTile('CpG ≥ 5×', s.qc.metrics.find(m=>m.key==='cpgCov').value+'%')}
+              ${covTile('Опух. фракция', s.qc.metrics.find(m=>m.key==='tumorFrac').value+'%')}
+            </div>
+            <hr class="divider">
+            <div class="muted" style="font-size:.8rem">Профиль: <span class="mono">${s.heatmap.N}</span> регионов · TSV ~1.5 ГБ · контексты CpG / CHG / CHH</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__head"><div class="section-title">${icon('users')} Обратная связь — дообучение модели</div></div>
+          <div class="card__body">
+            <p class="muted" style="margin-top:0;font-size:.83rem">Подтверждённый клинический исход используется как метка для переобучения классификатора.</p>
+            <div id="fb"></div>
+          </div>
+        </div>
+      </div>`;
+
+    // QC list
+    document.getElementById('qcList').innerHTML = s.qc.metrics.map(m=>`
+      <div class="metric">
+        <div class="metric__name">${m.name}<small>порог: ${m.threshold}</small></div>
+        <div class="metric__val" style="color:${m.threshold==='справочно'?'var(--ink-2)':m.pass?'var(--pass)':'var(--fail)'}">${m.value}${m.unit==='%'?'%':' '+m.unit}</div>
+        <div>${m.threshold==='справочно'? '<span class="badge badge--muted">инфо</span>' : m.pass? `<span class="badge badge--pass">${icon('check')}</span>` : `<span class="badge badge--fail">${icon('x')}</span>`}</div>
+      </div>`).join('');
+
+    document.getElementById('heatmap').innerHTML = heatmapHtml(s.heatmap);
+    renderFeedback();
+  }
+
+  function covTile(label, val){
+    return `<div style="background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:11px 13px">
+      <div class="muted" style="font-size:.74rem">${label}</div>
+      <div style="font-family:var(--disp);font-weight:800;font-size:1.25rem;margin-top:3px">${val}</div>
+    </div>`;
+  }
+
+  function renderFeedback(){
+    const fb = getFeedback(s);
+    const host = document.getElementById('fb');
+    host.innerHTML = `
+      <div class="feedback">
+        <div>
+          <div style="font-weight:600;font-size:.86rem;margin-bottom:8px">Диагноз подтверждён по результатам дообследования?</div>
+          <div class="radio-cards">
+            <label class="radio-card ${fb.confirmed==='yes'?'is-sel-yes':''}" id="rcYes">
+              <input type="radio" name="fb" value="yes" ${fb.confirmed==='yes'?'checked':''} style="accent-color:var(--pass)">
+              <span style="color:var(--pass)">${icon('circle-check')}</span> Да, подтверждён
+            </label>
+            <label class="radio-card ${fb.confirmed==='no'?'is-sel-no':''}" id="rcNo">
+              <input type="radio" name="fb" value="no" ${fb.confirmed==='no'?'checked':''} style="accent-color:var(--fail)">
+              <span style="color:var(--fail)">${icon('circle-x')}</span> Нет, не подтверждён
+            </label>
+          </div>
+        </div>
+        <div id="locWrap" style="${fb.confirmed==='yes'?'':'display:none'}">
+          <div style="font-weight:600;font-size:.86rem;margin-bottom:6px">Подтверждённая локализация</div>
+          <select class="select" id="locSel" style="width:100%">
+            <option value="">— не указана —</option>
+            ${CANCER_TYPES.map(t=>`<option value="${t.key}" ${fb.locConfirmed===t.key?'selected':''}>${t.label}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:.86rem;margin-bottom:6px">Комментарий</div>
+          <textarea class="textarea" id="fbNote" placeholder="Метод подтверждения, стадия, примечания…">${escapeHtml(fb.note||'')}</textarea>
+        </div>
+        <div class="hstack">
+          <button class="btn btn--primary" id="fbSave">${icon('check')} Сохранить исход</button>
+          ${fb.date? `<span class="muted" style="font-size:.8rem">Обновлено ${fb.date}</span>`:''}
+        </div>
+      </div>`;
+
+    host.querySelectorAll('input[name="fb"]').forEach(r=> r.addEventListener('change', ()=>{
+      document.getElementById('rcYes').classList.toggle('is-sel-yes', r.value==='yes'&&r.checked);
+      document.getElementById('rcNo').classList.toggle('is-sel-no', r.value==='no'&&r.checked);
+      document.getElementById('locWrap').style.display = (document.querySelector('input[name="fb"]:checked')||{}).value==='yes'?'':'none';
+    }));
+    document.getElementById('fbSave').addEventListener('click', ()=>{
+      const val = (document.querySelector('input[name="fb"]:checked')||{}).value || null;
+      if (!val){ toast('Выберите вариант исхода'); return; }
+      saveFeedback(s.id, { confirmed:val, locConfirmed: document.getElementById('locSel').value, note: document.getElementById('fbNote').value, date:'2026-07-09' });
+      toast('Исход сохранён — образец добавлен в обучающую выборку');
+      renderFeedback();
+    });
+  }
+</script>
+</body>
+</html>

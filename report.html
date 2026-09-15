@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EpiPrint · Заключение</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  /* ============ Заключение — бланк лаборатории (Genomed letterhead + Galleri-контент) ============ */
+  .rp-toolbar{ max-width:210mm; margin:0 auto 14px; }
+  .doc{
+    width:210mm; min-height:297mm; margin:0 auto; background:#fff;
+    box-shadow:var(--shadow-lg); position:relative; overflow:hidden;
+    font-family:var(--body); color:#20242b; font-size:9.6px; padding:10mm 15mm 8mm;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .doc *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+  /* ---- шапка Genomed ---- */
+  .gm-head{ display:grid; grid-template-columns:132px 1fr auto; gap:14px; align-items:center; }
+  .gm-logo svg{ width:190px; height:auto; display:block; }
+  .gm-logo-img{ height:52px; width:auto; display:block; }
+  .gm-org .gm-reg{ display:flex; gap:16px; font-family:var(--mono); font-size:7.6px; color:#5a6b7b; }
+  .gm-lab{ font-family:var(--disp); font-weight:800; font-size:13px; color:#155a9e; letter-spacing:.01em; margin:4px 0 3px; text-align:center; white-space:nowrap; }
+  .gm-addr{ font-size:8.2px; color:#6b7280; }
+  .gm-contacts{ font-size:7.9px; color:#4a5a68; display:flex; flex-direction:column; gap:2.5px; }
+  .gm-contacts div{ display:flex; align-items:center; gap:6px; justify-content:flex-end; white-space:nowrap; }
+  .gm-contacts svg{ width:11px; height:11px; color:#1a86c8; flex:none; }
+  .gm-rule{ height:2px; background:#155a9e; border:0; margin:7px 0 0; }
+  .gm-rule2{ height:.6px; background:#9cc3e4; border:0; margin:1.5px 0 0; }
+
+  /* ---- заголовок ---- */
+  .rp-titleblock{ text-align:center; margin:5mm 0 4mm; }
+  .rp-title{ font-family:var(--disp); font-weight:800; font-size:18px; letter-spacing:.04em; color:#12202b; }
+  .rp-subtitle{ font-size:10px; color:#5a6b7b; margin-top:3px; }
+  .rp-subtitle b{ color:var(--brand); font-weight:700; }
+
+  /* ---- реквизиты образца ---- */
+  .rp-info{ display:grid; grid-template-columns:1fr 1.25fr 1fr; gap:22px; padding:11px 0; border-top:1px solid #dfe6ec; border-bottom:1px solid #dfe6ec; }
+  .rp-info h4{ font-family:var(--disp); font-weight:700; font-size:10.5px; margin:0 0 6px; color:#155a9e; }
+  .rp-info dl{ display:grid; grid-template-columns:auto 1fr; gap:3px 10px; margin:0; font-size:9px; }
+  .rp-info dt{ color:#8a99a8; font-weight:600; white-space:nowrap; }
+  .rp-info dd{ margin:0; color:#20242b; }
+
+  /* реквизиты в стиле бланка Геномед (сжатый вариант) */
+  .rp-gm-info{ display:grid; grid-template-columns:1fr 1fr; gap:2px 30px; padding:11px 0; border-top:1px solid #dfe6ec; border-bottom:1px solid #dfe6ec; font-size:9.6px; }
+  .rp-gm-info .r{ display:flex; gap:7px; padding:2.5px 0; align-items:baseline; }
+  .rp-gm-info .r b{ color:#12202b; font-weight:700; white-space:nowrap; }
+  .rp-gm-info .r span{ color:#20242b; }
+
+  /* ---- секции с боковым язычком ---- */
+  .rp-sec{ display:flex; gap:0; margin-top:4.5mm; }
+  .rp-sec__tab{ width:24px; flex:none; color:#fff; writing-mode:vertical-rl; transform:rotate(180deg);
+    text-align:center; font-family:var(--disp); font-weight:800; letter-spacing:.14em; font-size:9.5px; text-transform:uppercase;
+    display:flex; align-items:center; justify-content:center; padding:12px 0; border-radius:3px; }
+  .rp-sec__body{ flex:1; padding-left:16px; min-width:0; }
+
+  .resultbox{ border:1.6px solid var(--det); border-radius:5px; padding:15px 20px 14px; position:relative; margin-top:8px; display:flex; gap:18px; align-items:flex-start; }
+  .resultbox__legend{ position:absolute; top:-8px; left:18px; background:#fff; padding:0 8px; color:var(--det); font-family:var(--disp); font-weight:800; font-size:11.5px; }
+  .result-icon{ width:52px; height:52px; flex:none; border-radius:50%; background:var(--det); color:#fff; display:grid; place-items:center; font-family:var(--disp); font-weight:900; font-size:29px; line-height:1; }
+  .result-icon svg{ width:27px; height:27px; }
+  .result-h{ font-family:var(--disp); font-weight:800; font-size:19px; letter-spacing:-.01em; color:var(--det); line-height:1.08; margin:1px 0 6px; }
+  .result-p{ font-size:9.6px; line-height:1.55; color:#2f3944; margin:0; text-align:justify; }
+  .result-p b{ color:#12202b; }
+
+  .rp-two{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:14px; }
+  .rp-two h5{ display:flex; align-items:center; gap:7px; font-family:var(--disp); font-weight:800; font-size:11.5px; color:var(--det); margin:0 0 5px; }
+  .rp-two h5 svg{ width:15px; height:15px; }
+  .rp-two p{ margin:0; font-size:9.1px; line-height:1.5; color:#2f3944; text-align:justify; }
+  .rp-two p b{ color:#12202b; }
+
+  .pred-h{ font-family:var(--disp); font-weight:800; font-size:14px; color:var(--pred); margin:0 0 3px; }
+  .pred-rule{ height:1.5px; background:var(--pred); opacity:.4; border:0; margin:0 0 11px; }
+  .pred-grid{ display:grid; grid-template-columns:210px 1fr; gap:22px; align-items:start; }
+  .cso-card{ border:1.4px solid #d7d3ec; border-radius:5px; overflow:hidden; }
+  .cso-card__hd{ background:var(--pred); color:#fff; font-family:var(--disp); font-weight:700; font-size:9px; padding:6px 12px; letter-spacing:.04em; text-transform:uppercase; }
+  .cso-card__bd{ padding:12px 13px; }
+  .cso-label{ font-family:var(--mono); font-size:7.2px; letter-spacing:.1em; text-transform:uppercase; color:var(--pred); font-weight:600; }
+  .cso-name{ font-family:var(--disp); font-weight:800; font-size:14.5px; color:#20242b; line-height:1.05; margin:2px 0 7px; }
+  .cso-meter{ height:10px; border:1px solid var(--pred); border-radius:2px; overflow:hidden; margin-bottom:2px; background:repeating-linear-gradient(90deg,transparent 0,transparent 13px,#eceaf5 13px,#eceaf5 14px); }
+  .cso-meter i{ background:var(--pred); display:block; height:100%; }
+  .cso-second{ border-top:1px solid #eceaf5; margin-top:10px; padding-top:9px; }
+  .pred-expl p{ font-size:9.1px; line-height:1.5; color:#2f3944; margin:0 0 7px; text-align:justify; }
+  .pred-expl p.it{ font-style:italic; color:#6b7280; margin-bottom:0; }
+
+  .rp-fine{ margin-top:4mm; border-top:1px solid #dfe6ec; padding-top:7px; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .rp-fine h6{ font-family:var(--disp); font-weight:700; font-size:9.5px; margin:0 0 4px; color:#20242b; }
+  .rp-fine p{ margin:0; font-size:8.4px; line-height:1.5; color:#6b7280; text-align:justify; }
+  .rp-fine ul{ margin:0; padding-left:14px; font-size:8.4px; line-height:1.5; color:#6b7280; }
+  .rp-fine ul li{ margin-bottom:2.5px; text-align:justify; }
+
+  .rp-sign{ margin-top:4mm; display:flex; justify-content:space-between; align-items:flex-end; }
+  .rp-sign__who{ font-size:8.7px; color:#4a5a68; }
+  .rp-sign__line{ margin-top:18px; width:240px; }
+  .rp-sign__name{ border-top:1px solid #20242b; padding-top:4px; font-family:var(--disp); font-weight:700; font-size:10.5px; }
+  .rp-sign__role{ font-size:8.2px; color:#8a99a8; margin-top:1px; }
+  .seal{ width:104px; height:104px; flex:none; margin-right:4px; }
+  .seal svg{ width:100%; height:100%; opacity:.9; transform:rotate(-6deg); }
+
+  .rp-foot{ margin-top:4mm; border-top:1px solid #dfe6ec; padding-top:6px; font-family:var(--mono); font-size:7.3px; color:#a0aab4; line-height:1.6; display:flex; justify-content:space-between; gap:12px; }
+
+  @media print{
+    .sidebar,.topbar,.no-print,.rp-toolbar{ display:none !important; }
+    .main{ margin-left:0 !important; }
+    .content{ padding:0 !important; max-width:none; }
+    body{ background:#fff; }
+    .doc{ box-shadow:none; margin:0; min-height:auto; width:auto; }
+    @page{ size:A4; margin:0; }
+  }
+</style>
+</head>
+<body data-page="samples">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar" data-title="Заключение"></header>
+    <main class="content">
+      <div class="rp-toolbar hstack">
+        <a class="btn btn--sm btn--ghost" href="" id="backBtn"></a>
+        <div class="spacer"></div>
+        <button class="btn btn--sm" id="mailBtn" onclick="toast('Заключение отправлено на e-mail лаборатории')"></button>
+        <button class="btn btn--primary btn--sm" onclick="window.print()" id="printBtn"></button>
+      </div>
+      <div id="doc"></div>
+    </main>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+<script src="assets/logo.js"></script>
+<script src="assets/report-view.js"></script>
+<script>
+  const s = sampleById(qs('id')) || SAMPLES.find(x=>x.status==='done');
+  document.getElementById('backBtn').innerHTML = icon('arrow-left')+' К образцу';
+  document.getElementById('backBtn').href = 'sample.html?id='+s.id;
+  document.getElementById('mailBtn').innerHTML = icon('file-text')+' На e-mail';
+  document.getElementById('printBtn').innerHTML = icon('printer')+' Печать / Сохранить PDF';
+  document.getElementById('doc').outerHTML = buildReportDoc(s, qs('v')==='compact' ? 'compact' : 'full');
+</script>
+</body>
+</html>

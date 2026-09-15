@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EpiPrint · Очередь</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="queue">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar" data-title="Очередь обработки"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">Пайплайн на кластере</div>
+          <h1>Очередь обработки</h1>
+          <p>Образцы обрабатываются последовательно: один образец занимает весь кластер и считается быстро. Страница обновляется автоматически — вручную жать «Обновить» не нужно.</p>
+        </div>
+        <div class="hstack">
+          <span class="chip" id="liveChip"></span>
+          <label class="hstack" style="font-size:.85rem;font-weight:600"><input type="checkbox" class="checkbox" id="autoToggle" checked> Автообновление</label>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="segmented" id="filter">
+          <button data-f="all" class="is-active">Все</button>
+          <button data-f="processing">В обработке</button>
+          <button data-f="queued">В очереди</button>
+          <button data-f="done">Завершён</button>
+          <button data-f="error">Ошибка</button>
+        </div>
+        <div class="toolbar__spacer"></div>
+        <button class="btn btn--sm" id="manualRefresh"></button>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>ID</th><th>Создан</th><th>Старт</th><th>Оконч.</th>
+              <th>Образец</th><th>Набор</th><th>ref</th>
+              <th style="min-width:180px">Стадии</th><th>Статус</th><th>Логи</th>
+            </tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+  document.getElementById('manualRefresh').innerHTML = icon('refresh-cw') + ' Обновить сейчас';
+
+  // мутируемая копия для live-симуляции
+  const Q = JSON.parse(JSON.stringify(QUEUE));
+  let filter = 'all';
+  let lastUpdate = 0;
+
+  function stagesPips(q){
+    const total = PIPELINE_STAGES.length;
+    return `<div class="stages" title="${q.stageIdx}/${total} стадий">` +
+      PIPELINE_STAGES.map((_,i)=>{
+        let cls='';
+        if (q.status==='error' && i===q.stageIdx) cls='error';
+        else if (i<q.stageIdx) cls='done';
+        else if (i===q.stageIdx && q.status==='processing') cls='active';
+        return `<span class="stage-pip ${cls}"></span>`;
+      }).join('') +
+      `</div><div class="muted mono" style="font-size:.7rem;margin-top:3px">${q.status==='processing'? PIPELINE_STAGES[q.stageIdx] : q.status==='error'? '⚠ '+PIPELINE_STAGES[q.stageIdx] : q.status==='done'? 'готово':'ожидает'}</div>`;
+  }
+
+  function logBtns(q){
+    return `<div class="wrap-gap">
+      <a class="chip" onclick="toast('Скачивание status.log')" style="cursor:pointer">status.log</a>
+      <a class="chip" onclick="toast('Скачивание err.log')" style="cursor:pointer">err.log</a>
+      <a class="chip" onclick="toast('Скачивание log')" style="cursor:pointer">log</a>
+    </div>`;
+  }
+
+  function render(){
+    const list = Q.filter(q=> filter==='all' || q.status===filter);
+    const tb = document.getElementById('rows');
+    if (!list.length){ tb.innerHTML = `<tr><td colspan="10" class="tbl__empty">Нет образцов в этом статусе</td></tr>`; return; }
+    tb.innerHTML = list.map(q=>`
+      <tr class="${q.status==='done'?'clickable':''}" ${q.status==='done'?`onclick="location.href='sample.html?id=${q.id}'"`:''}>
+        <td class="mono muted">${q.id}</td>
+        <td class="mono" style="font-size:.78rem">${q.created}</td>
+        <td class="mono muted" style="font-size:.78rem">${q.startAt}</td>
+        <td class="mono muted" style="font-size:.78rem">${q.endAt}</td>
+        <td class="id">${q.seqId}</td>
+        <td><span class="chip">${q.kit.label}</span></td>
+        <td class="mono muted">${q.ref}</td>
+        <td>${stagesPips(q)}</td>
+        <td>${statusBadge(q.status)}</td>
+        <td>${logBtns(q)}</td>
+      </tr>`).join('');
+  }
+
+  function setLiveChip(){
+    const active = Q.filter(q=>q.status==='processing').length;
+    document.getElementById('liveChip').innerHTML =
+      `<span class="live-dot"></span> ${active} в работе · обновлено ${lastUpdate}с назад`;
+  }
+
+  // фильтры
+  document.querySelectorAll('#filter button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('#filter button').forEach(x=>x.classList.remove('is-active'));
+      b.classList.add('is-active'); filter=b.dataset.f; render();
+    });
+  });
+  document.getElementById('manualRefresh').addEventListener('click', ()=>{ tick(true); toast('Обновлено'); });
+
+  // live-симуляция: продвигаем активные образцы по стадиям
+  function tick(force){
+    const auto = document.getElementById('autoToggle').checked;
+    if (!auto && !force){ lastUpdate += 2; setLiveChip(); return; }
+    lastUpdate = 0;
+    Q.forEach(q=>{
+      if (q.status==='processing'){
+        if (Math.random()>0.4){
+          q.stageIdx++;
+          if (q.stageIdx>=PIPELINE_STAGES.length){
+            q.status='done'; q.stageIdx=PIPELINE_STAGES.length; q.endAt='только что';
+            // подтягиваем один из queued в processing
+            const next = Q.find(x=>x.status==='queued');
+            if (next){ next.status='processing'; next.stageIdx=1; next.startAt='только что'; }
+          }
+        }
+      }
+    });
+    render(); setLiveChip();
+  }
+
+  render(); setLiveChip();
+  setInterval(()=>{ lastUpdate += 2; if (document.getElementById('autoToggle').checked) tick(); else setLiveChip(); }, 2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,1667 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EpiPrint · Mid</title>
+<style>
+/* ============================================================
+   EpiPrint · Lab — минималистичный «LIMS»-слой.
+   Плоско, плотно, серо-белая палитра + один акцент. Данные — главное.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root{
+  /* токены дизайн-системы — палитра OncoPulse (AdminLTE skin-blue) */
+  --brand:#3c8dbc; --brand-600:#3c8dbc; --brand-700:#367fa9; --brand-050:#e8f1f8;
+  --brand-tint:#f2f8fd; --sky:#5fa8d3; --sb-bg:#222d32; --sb-bg2:#1f292e; --sb-hover:#2c3b41;
+  --pass:#157f45; --pass-bg:#e8f3ec; --warn:#a86400; --warn-bg:#f6efe2; --fail:#bd3a2c; --fail-bg:#f7e9e6;
+  --info:#2b5cc4; --info-bg:#eaeef8; --queued:#7b828a; --queued-bg:#eef0f2;
+  --risk-high:#bd3a2c; --risk-high-bg:#f7e9e6; --risk-med:#a86400; --risk-med-bg:#f6efe2; --risk-low:#157f45; --risk-low-bg:#e8f3ec;
+  --hm-0:#2c6fb3; --hm-mid:#f1f1ec; --hm-1:#bd3a2c;
+  --disp:"Montserrat", system-ui, sans-serif;
+  --body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --ink:#15181c; --ink-2:#565d64; --ink-3:#878e96; --faint:#a6adb4;
+  --bg:#eef2f6; --surface:#ffffff; --surface-2:#f6f9fc;
+  --line:#dde4ea; --line-2:#eaeff4;
+  --accent:var(--brand);
+
+  --sb-w:210px;
+  --row:34px;          /* средняя плотность */
+  --gap:18px;
+  --shadow:0 1px 2px rgba(16,48,84,.05), 0 1px 3px rgba(16,48,84,.04);
+}
+body.dense{ --row:27px; --gap:12px; font-size:12px; }
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{ font-family:var(--body); color:var(--ink); background:var(--bg); font-size:13px; line-height:1.45; -webkit-font-smoothing:antialiased; }
+a{ color:var(--brand); text-decoration:none; }
+a:hover{ text-decoration:underline; }
+.mono{ font-family:var(--mono); }
+.muted{ color:var(--ink-2); }
+.faint{ color:var(--ink-3); }
+.spacer{ flex:1; }
+.nowrap{ white-space:nowrap; }
+.right{ text-align:right; }
+hr.rule{ border:0; border-top:1px solid var(--line); margin:var(--gap) 0; }
+
+/* ---------- layout ---------- */
+.layout{ display:flex; min-height:100vh; }
+.main{ flex:1; min-width:0; margin-left:var(--sb-w); display:flex; flex-direction:column; transition:margin-left .18s ease; }
+/* сворачивание бокового меню */
+.sb{ transition:transform .18s ease; }
+body.sb-hidden .sb{ transform:translateX(-100%); }
+body.sb-hidden .main{ margin-left:0; }
+.topbtn{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); color:#fff; border-radius:6px; width:30px; height:30px; flex:none; display:grid; place-items:center; cursor:pointer; }
+.topbtn:hover{ background:rgba(255,255,255,.26); }
+.topbtn svg{ width:16px; height:16px; }
+.content{ padding:18px 24px 48px; max-width:1500px; width:100%; }
+body.dense .content{ padding:12px 16px 40px; }
+
+/* ---------- sidebar (light) ---------- */
+.sb{ position:fixed; top:0; left:0; bottom:0; width:var(--sb-w); background:var(--sb-bg); display:flex; flex-direction:column; z-index:30; }
+.sb__brand{ display:flex; align-items:center; gap:9px; padding:13px 14px; background:var(--sb-bg2); }
+.sb__mark{ width:27px; height:27px; border-radius:6px; flex:none; background:linear-gradient(145deg,var(--sky),var(--brand)); display:grid; place-items:center; }
+.sb__mark svg{ width:16px; height:16px; color:#fff; }
+.sb__name{ font-weight:700; font-size:14.5px; letter-spacing:-.01em; color:#fff; }
+.sb__name small{ display:block; font-size:.6rem; letter-spacing:.05em; text-transform:uppercase; color:#7d919c; font-weight:400; margin-top:1px; }
+.nav{ padding:6px 0; flex:1; overflow-y:auto; }
+.nav__g{ font-size:.68rem; letter-spacing:.02em; text-transform:uppercase; color:#6b7f8a; padding:14px 14px 5px; }
+.nav__i{ display:flex; align-items:center; gap:10px; padding:8px 14px; color:#b8c7cf; font-weight:400; font-size:13.5px; cursor:pointer; border-left:3px solid transparent; }
+.nav__i:hover{ background:var(--sb-hover); color:#fff; text-decoration:none; }
+.nav__i.on{ color:#fff; background:var(--sb-hover); border-left-color:var(--brand); font-weight:500; }
+.nav__i svg{ width:16px; height:16px; opacity:.75; flex:none; }
+.nav__i .n{ margin-left:auto; font-size:.7rem; color:#cfe0e8; background:rgba(255,255,255,.1); padding:0 7px; border-radius:10px; }
+.sb__foot{ padding:9px 14px; font-size:.62rem; color:#5d707b; }
+
+/* ---------- topbar ---------- */
+.top{ position:sticky; top:0; z-index:20; background:var(--brand); color:#fff; display:flex; align-items:center; gap:14px; padding:0 20px; height:46px; box-shadow:0 1px 3px rgba(20,50,80,.12); }
+.top__t{ font-weight:600; font-size:15px; color:#fff; }
+.top__sys{ font-family:var(--body); font-size:.78rem; color:rgba(255,255,255,.82); display:flex; gap:15px; }
+.top__sys b{ color:#fff; font-weight:600; }
+.seg{ display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; background:var(--surface); }
+.seg button{ border:0; background:var(--surface); font-family:var(--body); font-size:12.5px; color:var(--ink-2); padding:5px 13px; cursor:pointer; font-weight:500; }
+.seg button.on{ background:var(--brand); color:#fff; }
+.top input.search{ border:1px solid rgba(255,255,255,.35); border-radius:6px; padding:6px 10px; font-family:var(--body); font-size:12.5px; outline:none; width:210px; background:rgba(255,255,255,.16); color:#fff; }
+.top input.search::placeholder{ color:rgba(255,255,255,.72); }
+.top input.search:focus{ border-color:#fff; background:rgba(255,255,255,.24); }
+.avatar{ width:28px; height:28px; border-radius:999px; background:#fff; color:var(--brand); display:grid; place-items:center; font-weight:700; font-size:11px; }
+.fontctl{ display:inline-flex; align-items:center; gap:6px; color:#fff; font-size:12px; }
+.fontctl span{ font-weight:700; font-size:14px; }
+.fontctl input[type=range]{ width:82px; accent-color:#fff; cursor:pointer; height:4px; }
+
+/* ---------- page header (terse) ---------- */
+.ph{ display:flex; align-items:baseline; gap:12px; margin-bottom:12px; }
+.ph h1{ font-size:16px; font-weight:700; margin:0; letter-spacing:-.01em; }
+.ph .sub{ font-size:12px; color:var(--ink-3); }
+.ph .spacer{ flex:1; }
+
+/* ---------- status strip (вместо крупных KPI) ---------- */
+.strip{ display:flex; flex-wrap:wrap; gap:0; border:1px solid var(--line); border-radius:10px; background:var(--surface); margin-bottom:var(--gap); overflow:hidden; box-shadow:var(--shadow); }
+.strip__i{ padding:11px 18px; border-right:1px solid var(--line-2); display:flex; align-items:baseline; gap:8px; }
+.strip__i:last-child{ border-right:0; }
+.strip__n{ font-family:var(--mono); font-weight:700; font-size:19px; color:var(--ink); }
+.strip__l{ font-size:12px; color:var(--ink-3); }
+.strip__i.b-pass .strip__n{ color:var(--pass); } .strip__i.b-fail .strip__n{ color:var(--fail); }
+.strip__i.b-run .strip__n{ color:var(--info); } .strip__i.b-warn .strip__n{ color:var(--warn); }
+
+/* ---------- panel ---------- */
+.panel{ background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow); }
+.panel__h{ display:flex; align-items:center; gap:9px; padding:10px 14px; border-bottom:1px solid var(--line-2); }
+.panel__b{ padding:14px; }
+.sec{ font-family:var(--body); font-size:13px; letter-spacing:0; text-transform:none; color:var(--ink); font-weight:600; }
+.sec svg{ width:15px; height:15px; color:var(--brand); vertical-align:-2px; margin-right:5px; }
+.grid{ display:grid; gap:var(--gap); }
+
+/* ---------- tables (главный элемент) ---------- */
+.tw{ overflow-x:auto; }
+table.t{ width:100%; border-collapse:collapse; font-size:13px; }
+.t th{ text-align:left; font-weight:600; color:var(--ink-3); font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap; position:sticky; top:0; background:var(--surface-2); user-select:none; }
+.t th.s{ cursor:pointer; } .t th.s:hover{ color:var(--ink); }
+.t td{ padding:0 10px; height:var(--row); border-bottom:1px solid var(--line-2); vertical-align:middle; white-space:nowrap; }
+.t tbody tr:hover{ background:var(--surface-2); }
+.t tr.clk{ cursor:pointer; }
+.t .id{ font-family:var(--mono); font-size:12px; }
+.t .num{ text-align:right; font-family:var(--mono); }
+.t .empty{ padding:24px; text-align:center; color:var(--ink-3); height:auto; }
+.t--fixed td{ white-space:normal; }
+.chk{ width:14px; height:14px; accent-color:var(--brand); cursor:pointer; vertical-align:middle; }
+
+/* ---------- status tags (flat) ---------- */
+.st{ font-family:var(--mono); font-size:11px; font-weight:500; padding:1px 6px; border-radius:3px; white-space:nowrap; }
+.st--pass{ color:var(--pass); background:var(--pass-bg); }
+.st--fail{ color:var(--fail); background:var(--fail-bg); }
+.st--warn{ color:var(--warn); background:var(--warn-bg); }
+.st--run{ color:var(--info); background:var(--info-bg); }
+.st--queue{ color:var(--queued); background:var(--queued-bg); }
+.st--done{ color:var(--pass); background:var(--pass-bg); }
+.st--muted{ color:var(--ink-2); background:var(--line-2); }
+.st--high{ color:var(--risk-high); background:var(--risk-high-bg); }
+.st--med{ color:var(--risk-med); background:var(--risk-med-bg); }
+.st--low{ color:var(--risk-low); background:var(--risk-low-bg); }
+.dot{ display:inline-block; width:6px; height:6px; border-radius:999px; vertical-align:middle; margin-right:5px; }
+
+/* ---------- buttons ---------- */
+.btn{ display:inline-flex; align-items:center; gap:6px; font-family:var(--body); font-weight:500; font-size:12px; padding:5px 10px; border-radius:6px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; }
+.btn:hover{ background:var(--surface-2); text-decoration:none; }
+.btn svg{ width:14px; height:14px; }
+.btn--pri{ background:var(--brand); border-color:var(--brand); color:#fff; }
+.btn--pri:hover{ background:var(--brand-700); }
+.btn--sm{ padding:3px 8px; font-size:11px; }
+.btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+/* ---------- dotted-leader kv (вывод анализа) ---------- */
+.leads{ display:flex; flex-direction:column; }
+.lead{ display:flex; align-items:baseline; font-size:13px; padding:3px 0; }
+body.dense .lead{ padding:1.5px 0; }
+.lead .k{ color:var(--ink-2); }
+.lead .d{ flex:1; border-bottom:1px dotted var(--line); margin:0 7px; transform:translateY(-3px); }
+.lead .v{ font-family:var(--mono); font-weight:500; }
+.lead .v.pass{ color:var(--pass); } .lead .v.fail{ color:var(--fail); }
+/* QC — блоки метрик (как в qc.json) */
+.qc-block{ margin-bottom:9px; }
+.qc-block:last-of-type{ margin-bottom:0; }
+.qc-block__h{ font-size:11.5px; font-weight:600; color:var(--ink-2); margin-bottom:2px; padding-bottom:2px; border-bottom:1px solid var(--line-2); }
+.qc-thr{ font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-right:10px; cursor:help; }
+.qc-thr.faint{ color:var(--faint); font-style:italic; }
+/* QC — широкая таблица с группировкой столбцов по блокам */
+.qc-wide th{ position:static; }
+.qc-wide th.qc-grp{ text-align:center; text-transform:none; font-size:11px; color:var(--ink-2); border-left:2px solid var(--line); border-bottom:1px solid var(--line); }
+
+/* ---------- meta grid (LIMS header) ---------- */
+.lims-head{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:10px 14px; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
+.lims-head .id{ font-family:var(--mono); font-size:16px; font-weight:600; }
+.lims-head .m{ font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+.kvcols{ display:grid; grid-template-columns:repeat(4,1fr); gap:4px 22px; }
+.kvcols .k{ color:var(--ink-3); font-size:11px; }
+.kvcols .v{ font-family:var(--mono); font-size:12.5px; }
+.kvrow{ display:grid; grid-template-columns:130px 1fr; gap:2px 10px; }
+
+/* ---------- pipeline steps (compact) ---------- */
+.steps2{ display:flex; flex-direction:column; }
+.step2{ display:flex; align-items:center; gap:10px; height:26px; border-bottom:1px solid var(--line-2); font-size:12.5px; }
+.step2:last-child{ border-bottom:0; }
+.step2 .mk{ width:14px; text-align:center; font-family:var(--mono); font-size:11px; }
+.step2 .mk.done{ color:var(--pass); } .step2 .mk.run{ color:var(--info); } .step2 .mk.err{ color:var(--fail); } .step2 .mk.wait{ color:var(--faint); }
+.step2 .nm{ flex:1; }
+.step2 .tm{ font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.step2 .bar{ height:4px; width:120px; background:var(--line-2); border-radius:2px; overflow:hidden; }
+.step2 .bar i{ display:block; height:100%; background:var(--info); }
+
+/* ---------- localization mini-bars ---------- */
+.loc{ display:grid; grid-template-columns:150px 1fr 42px; align-items:center; gap:8px; font-size:12.5px; padding:2px 0; }
+.loc .t{ height:6px; background:var(--line-2); border-radius:2px; overflow:hidden; }
+.loc .t i{ display:block; height:100%; background:var(--ink-3); }
+.loc.hi{ background:rgba(60,141,188,.10); border-radius:5px; padding:4px 8px; margin:2px -8px; }
+.loc.hi .nm{ font-weight:700; color:var(--brand-700); }
+.loc.hi .t{ background:#fff; }
+.loc.hi .t i{ background:var(--brand); }
+.loc.hi .vv{ color:var(--brand-700); font-weight:600; }
+.loc .vv{ font-family:var(--mono); text-align:right; color:var(--ink-2); }
+
+/* ---------- score inline ---------- */
+.score-big{ font-family:var(--mono); font-size:30px; font-weight:600; letter-spacing:-.02em; }
+.score-big.high{ color:var(--risk-high); } .score-big.medium{ color:var(--risk-med); } .score-big.low{ color:var(--risk-low); }
+
+/* ---------- files list ---------- */
+.files{ display:flex; flex-direction:column; }
+.file{ display:flex; align-items:center; gap:8px; height:28px; border-bottom:1px solid var(--line-2); font-family:var(--mono); font-size:12px; }
+.file:last-child{ border-bottom:0; }
+.file .fn{ flex:1; } .file .fz{ color:var(--ink-3); } .file a{ color:var(--brand); cursor:pointer; }
+
+/* ---------- collapsible ---------- */
+details.dd > summary{ list-style:none; cursor:pointer; font-family:var(--mono); font-size:.72rem; color:var(--brand); padding:4px 0; user-select:none; display:flex; align-items:center; gap:6px; }
+details.dd > summary::-webkit-details-marker{ display:none; }
+details.dd > summary::before{ content:"▸"; color:var(--ink-3); }
+details.dd[open] > summary::before{ content:"▾"; }
+
+/* ---------- heatmap (сохраняем — понравилась) ---------- */
+.heatmap{ overflow-x:auto; padding-bottom:4px; }
+.heatmap__inner{ display:inline-block; }
+.hm-row{ display:flex; align-items:center; }
+.hm-label{ width:80px; flex:none; font-size:12px; text-align:right; padding-right:10px; color:var(--ink-2); font-family:var(--mono); }
+.hm-label.strong{ font-weight:600; color:var(--ink); }
+.hm-cell{ width:12px; height:18px; flex:none; }
+.hm-scale{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11px; color:var(--ink-3); font-family:var(--mono); }
+.hm-scale__bar{ width:140px; height:8px; border-radius:2px; background:linear-gradient(90deg,var(--hm-0),var(--hm-mid),var(--hm-1)); }
+
+/* ---------- alerts ---------- */
+.alert{ display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid var(--line-2); font-size:12.5px; }
+.alert:last-child{ border-bottom:0; }
+.alert svg{ width:14px; height:14px; flex:none; }
+
+/* ---------- feedback (compact) ---------- */
+.fb-opts{ display:flex; gap:8px; }
+.fb-opt{ border:1px solid var(--line); border-radius:6px; padding:5px 10px; font-size:12px; cursor:pointer; }
+.fb-opt.on-y{ border-color:var(--pass); color:var(--pass); background:var(--pass-bg); }
+.fb-opt.on-n{ border-color:var(--fail); color:var(--fail); background:var(--fail-bg); }
+textarea.ta{ width:100%; border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-family:var(--body); font-size:12px; resize:vertical; min-height:48px; outline:none; }
+select.sel{ border:1px solid var(--line); border-radius:6px; padding:4px 8px; font-size:12px; background:var(--surface); outline:none; }
+
+/* ---------- toast ---------- */
+.toast-host{ position:fixed; right:16px; bottom:16px; display:flex; flex-direction:column; gap:8px; z-index:100; }
+.toast{ background:var(--ink); color:#fff; padding:8px 12px; border-radius:6px; font-size:12px; box-shadow:0 4px 14px rgba(0,0,0,.18); }
+
+.live{ display:inline-block; width:6px; height:6px; border-radius:999px; background:var(--pass); margin-right:5px; animation:pl 1.6s infinite; }
+@keyframes pl{ 0%,100%{opacity:1} 50%{opacity:.35} }
+
+@media (max-width:900px){ .kvcols{ grid-template-columns:repeat(2,1fr); } }
+
+/* ---- стили заключения ---- */
+
+  /* ============ Заключение — бланк лаборатории (Genomed letterhead + Galleri-контент) ============ */
+  .rp-toolbar{ max-width:210mm; margin:0 auto 14px; }
+  .doc{
+    width:210mm; min-height:297mm; margin:0 auto; background:#fff;
+    box-shadow:var(--shadow-lg); position:relative; overflow:hidden;
+    font-family:var(--body); color:#20242b; font-size:9.6px; padding:10mm 15mm 8mm;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .doc *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+  /* ---- шапка Genomed ---- */
+  .gm-head{ display:grid; grid-template-columns:132px 1fr auto; gap:14px; align-items:center; }
+  .gm-logo svg{ width:190px; height:auto; display:block; }
+  .gm-logo-img{ height:52px; width:auto; display:block; }
+  .gm-org .gm-reg{ display:flex; gap:16px; font-family:var(--mono); font-size:7.6px; color:#5a6b7b; }
+  .gm-lab{ font-family:var(--disp); font-weight:800; font-size:13px; color:#155a9e; letter-spacing:.01em; margin:4px 0 3px; text-align:center; white-space:nowrap; }
+  .gm-addr{ font-size:8.2px; color:#6b7280; }
+  .gm-contacts{ font-size:7.9px; color:#4a5a68; display:flex; flex-direction:column; gap:2.5px; }
+  .gm-contacts div{ display:flex; align-items:center; gap:6px; justify-content:flex-end; white-space:nowrap; }
+  .gm-contacts svg{ width:11px; height:11px; color:#1a86c8; flex:none; }
+  .gm-rule{ height:2px; background:#155a9e; border:0; margin:7px 0 0; }
+  .gm-rule2{ height:.6px; background:#9cc3e4; border:0; margin:1.5px 0 0; }
+
+  /* ---- заголовок ---- */
+  .rp-titleblock{ text-align:center; margin:5mm 0 4mm; }
+  .rp-title{ font-family:var(--disp); font-weight:800; font-size:18px; letter-spacing:.04em; color:#12202b; }
+  .rp-subtitle{ font-size:10px; color:#5a6b7b; margin-top:3px; }
+  .rp-subtitle b{ color:var(--brand); font-weight:700; }
+
+  /* ---- реквизиты образца ---- */
+  .rp-info{ display:grid; grid-template-columns:1fr 1.25fr 1fr; gap:22px; padding:11px 0; border-top:1px solid #dfe6ec; border-bottom:1px solid #dfe6ec; }
+  .rp-info h4{ font-family:var(--disp); font-weight:700; font-size:10.5px; margin:0 0 6px; color:#155a9e; }
+  .rp-info dl{ display:grid; grid-template-columns:auto 1fr; gap:3px 10px; margin:0; font-size:9px; }
+  .rp-info dt{ color:#8a99a8; font-weight:600; white-space:nowrap; }
+  .rp-info dd{ margin:0; color:#20242b; }
+
+  /* реквизиты в стиле бланка Геномед (сжатый вариант) */
+  .rp-gm-info{ display:grid; grid-template-columns:1fr 1fr; gap:2px 30px; padding:11px 0; border-top:1px solid #dfe6ec; border-bottom:1px solid #dfe6ec; font-size:9.6px; }
+  .rp-gm-info .r{ display:flex; gap:7px; padding:2.5px 0; align-items:baseline; }
+  .rp-gm-info .r b{ color:#12202b; font-weight:700; white-space:nowrap; }
+  .rp-gm-info .r span{ color:#20242b; }
+
+  /* ---- секции с боковым язычком ---- */
+  .rp-sec{ display:flex; gap:0; margin-top:4.5mm; }
+  .rp-sec__tab{ width:24px; flex:none; color:#fff; writing-mode:vertical-rl; transform:rotate(180deg);
+    text-align:center; font-family:var(--disp); font-weight:800; letter-spacing:.14em; font-size:9.5px; text-transform:uppercase;
+    display:flex; align-items:center; justify-content:center; padding:12px 0; border-radius:3px; }
+  .rp-sec__body{ flex:1; padding-left:16px; min-width:0; }
+
+  .resultbox{ border:1.6px solid var(--det); border-radius:5px; padding:15px 20px 14px; position:relative; margin-top:8px; display:flex; gap:18px; align-items:flex-start; }
+  .resultbox__legend{ position:absolute; top:-8px; left:18px; background:#fff; padding:0 8px; color:var(--det); font-family:var(--disp); font-weight:800; font-size:11.5px; }
+  .result-icon{ width:52px; height:52px; flex:none; border-radius:50%; background:var(--det); color:#fff; display:grid; place-items:center; font-family:var(--disp); font-weight:900; font-size:29px; line-height:1; }
+  .result-icon svg{ width:27px; height:27px; }
+  .result-h{ font-family:var(--disp); font-weight:800; font-size:19px; letter-spacing:-.01em; color:var(--det); line-height:1.08; margin:1px 0 6px; }
+  .result-p{ font-size:9.6px; line-height:1.55; color:#2f3944; margin:0; text-align:justify; }
+  .result-p b{ color:#12202b; }
+
+  .rp-two{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:14px; }
+  .rp-two h5{ display:flex; align-items:center; gap:7px; font-family:var(--disp); font-weight:800; font-size:11.5px; color:var(--det); margin:0 0 5px; }
+  .rp-two h5 svg{ width:15px; height:15px; }
+  .rp-two p{ margin:0; font-size:9.1px; line-height:1.5; color:#2f3944; text-align:justify; }
+  .rp-two p b{ color:#12202b; }
+
+  .pred-h{ font-family:var(--disp); font-weight:800; font-size:14px; color:var(--pred); margin:0 0 3px; }
+  .pred-rule{ height:1.5px; background:var(--pred); opacity:.4; border:0; margin:0 0 11px; }
+  .pred-grid{ display:grid; grid-template-columns:210px 1fr; gap:22px; align-items:start; }
+  .cso-card{ border:1.4px solid #d7d3ec; border-radius:5px; overflow:hidden; }
+  .cso-card__hd{ background:var(--pred); color:#fff; font-family:var(--disp); font-weight:700; font-size:9px; padding:6px 12px; letter-spacing:.04em; text-transform:uppercase; }
+  .cso-card__bd{ padding:12px 13px; }
+  .cso-label{ font-family:var(--mono); font-size:7.2px; letter-spacing:.1em; text-transform:uppercase; color:var(--pred); font-weight:600; }
+  .cso-name{ font-family:var(--disp); font-weight:800; font-size:14.5px; color:#20242b; line-height:1.05; margin:2px 0 7px; }
+  .cso-meter{ height:10px; border:1px solid var(--pred); border-radius:2px; overflow:hidden; margin-bottom:2px; background:repeating-linear-gradient(90deg,transparent 0,transparent 13px,#eceaf5 13px,#eceaf5 14px); }
+  .cso-meter i{ background:var(--pred); display:block; height:100%; }
+  .cso-second{ border-top:1px solid #eceaf5; margin-top:10px; padding-top:9px; }
+  .pred-expl p{ font-size:9.1px; line-height:1.5; color:#2f3944; margin:0 0 7px; text-align:justify; }
+  .pred-expl p.it{ font-style:italic; color:#6b7280; margin-bottom:0; }
+
+  .rp-fine{ margin-top:4mm; border-top:1px solid #dfe6ec; padding-top:7px; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .rp-fine h6{ font-family:var(--disp); font-weight:700; font-size:9.5px; margin:0 0 4px; color:#20242b; }
+  .rp-fine p{ margin:0; font-size:8.4px; line-height:1.5; color:#6b7280; text-align:justify; }
+  .rp-fine ul{ margin:0; padding-left:14px; font-size:8.4px; line-height:1.5; color:#6b7280; }
+  .rp-fine ul li{ margin-bottom:2.5px; text-align:justify; }
+
+  .rp-sign{ margin-top:4mm; display:flex; justify-content:space-between; align-items:flex-end; }
+  .rp-sign__who{ font-size:8.7px; color:#4a5a68; }
+  .rp-sign__line{ margin-top:18px; width:240px; }
+  .rp-sign__name{ border-top:1px solid #20242b; padding-top:4px; font-family:var(--disp); font-weight:700; font-size:10.5px; }
+  .rp-sign__role{ font-size:8.2px; color:#8a99a8; margin-top:1px; }
+  .seal{ width:104px; height:104px; flex:none; margin-right:4px; }
+  .seal svg{ width:100%; height:100%; opacity:.9; transform:rotate(-6deg); }
+
+  .rp-foot{ margin-top:4mm; border-top:1px solid #dfe6ec; padding-top:6px; font-family:var(--mono); font-size:7.3px; color:#a0aab4; line-height:1.6; display:flex; justify-content:space-between; gap:12px; }
+
+  @media print{
+    .sidebar,.topbar,.no-print,.rp-toolbar{ display:none !important; }
+    .main{ margin-left:0 !important; }
+    .content{ padding:0 !important; max-width:none; }
+    body{ background:#fff; }
+    .doc{ box-shadow:none; margin:0; min-height:auto; width:auto; }
+    @page{ size:A4; margin:0; }
+  }
+
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sb" id="sb"></aside>
+  <div class="main">
+    <header class="top" id="top"></header>
+    <main class="content" id="view"></main>
+  </div>
+</div>
+<script>
+/* ============================================================
+   EpiPrint — мок-данные прототипа (детерминированные).
+   Ничего из этого не является реальными медицинскими данными.
+   ============================================================ */
+
+// --- детерминированный PRNG (mulberry32) ---
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hashStr(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; }
+function rngFor(s){ return mulberry32(hashStr(s)); }
+function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+function between(rng, a, b, dp=0){ const v=a+rng()*(b-a); return dp?+v.toFixed(dp):Math.round(v); }
+
+// --- справочники ---
+const CANCER_TYPES = [
+  { key:'breast',     label:'Молочная железа' },
+  { key:'colorectal', label:'Колоректальный' },
+  { key:'prostate',   label:'Предстательная железа' },
+  { key:'lung',       label:'Лёгкое' },
+  { key:'liver',      label:'Печень' },
+  { key:'stomach',    label:'Желудок' },
+  { key:'pancreas',   label:'Поджелудочная железа' },
+  { key:'esophagus',  label:'Пищевод' },
+];
+const KITS = [
+  { key:'vazyme', label:'Vazyme',       method:'WGBS' },
+  { key:'rasel',  label:'Rasel',        method:'WGBS' },
+  { key:'brock',  label:'Burning Rock', method:'Таргетный (ELSA-seq)' },
+];
+const REF = 'hg38';
+
+// стадии пайплайна — по реальному status.log (Nanodigm) + downstream
+const PIPELINE_STAGES = [
+  'fastp',
+  'Выравнивание (bwa-meth)',
+  'MarkDuplicates',
+  'CollectMultipleMetrics',
+  'CollectWgsMetrics',
+  'Uniformity',
+  'MethylDackel',
+  'Cytosine QC',
+  'Build JSON',
+  'Классификатор',
+  'Формирование заключения',
+];
+
+// панель маркерных регионов метилирования, сгруппированная по типу рака
+// (реальные гены-маркеры cfDNA-метилирования, позиции — демо)
+const _MK = {
+  breast:     ['RASSF1A','GSTP1','CDH13','RARB','BRCA1','SFRP1'],
+  colorectal: ['SEPT9','BCAT1','NDRG4','SFRP2','TFPI2','VIM','APC'],
+  prostate:   ['GSTP1','APC','RASSF1A','PTGS2','RARB','TIG1'],
+  lung:       ['SHOX2','RASSF1A','PTGER4','HOXA7','SCT','CDO1'],
+  liver:      ['BMPR1A','HOXA10','SEPT9','RASSF1A','APC'],
+  stomach:    ['RPRM','RNF180','CDH1','TFPI2','MLH1'],
+  pancreas:   ['BNC1','ADAMTS1','SFRP2','NPTX2','CDKN2A'],
+  esophagus:  ['SFRP1','TAC1','HPP1','CDH13','APC'],
+};
+const MARKER_PANEL = CANCER_TYPES.flatMap(ct => (_MK[ct.key]||[]).map((g,i)=>{
+  const r = rngFor(ct.key+'_'+g+'_'+i);
+  return { gene:g, cancer:ct.key, pos: between(r, 1000000, 199000000) };
+}));
+
+// --- генерация выборки образцов ---
+const FEMALE_CODES = ['SII','LNV','TRI','TIS','BAS','ESR','KMA','ONA'];
+const MALE_CODES   = ['RAM','GEL','ARV','ZVP','URM','PNI','SIV','DKO'];
+const SURNAMES = ['Соколов','Кузнецов','Попов','Лебедев','Козлов','Новиков','Морозов','Волков','Соловьёв','Васильев','Зайцев','Павлов','Семёнов','Голубев','Виноградов','Богданов','Воробьёв','Фёдоров','Михайлов','Беляев','Тарасов','Комаров','Орлов','Киселёв','Макаров','Андреев','Ковалёв','Ильин','Гусев','Титов'];
+const INITS = ['А','Б','В','Г','Д','Е','И','К','Л','М','Н','О','П','Р','С','Т','Ю','Я'];
+function makeFio(seed, isFemale){ const r=rngFor(seed+'_fio'); let sur=pick(r,SURNAMES); if(isFemale) sur+='а'; return `${sur} ${pick(r,INITS)}. ${pick(r,INITS)}.`; }
+
+// Блоки QC — как в реальном qc.json (Nanodigm): coverage, cpg, duplicates,
+// insert_size, conversion_rate, strand_ratio; reads — отдельным (скрытым) блоком.
+const QC_BLOCKS = [
+  { key:'coverage',   label:'Покрытие' },
+  { key:'cpg',        label:'CpG' },
+  { key:'dup',        label:'Дупликаты' },
+  { key:'insert',     label:'Размер вставки' },
+  { key:'conversion', label:'Конверсия' },
+  { key:'strand',     label:'Соотношение цепей' },
+];
+const QC_READS_LABEL = 'Дополнительные метрики (риды)';
+
+// QC-метрики строго по формату реального qc.json (Nanodigm) — те же поля, те же
+// единицы: где в файле доля (0..1) — храним долю; проценты pct_* — как в файле;
+// reads.total_* — «сырые» счётчики. Пороги, которых нет в файле, помечены «справочно».
+function qcMetricsFrom(v){
+  const metrics = [
+    // Пороги — из литературы (см. src). Где стандарта нет — «справочно» (не выдумываем).
+    // блок «Покрытие» (coverage)
+    { key:'meanDepth',  block:'coverage',   name:'Средняя глубина покрытия', short:'Средняя глубина', unit:'×', value:v.meanDepth, threshold:'≥ 10', pass: v.meanDepth>=10, src:'Ziller, Nat Methods 2014 — эффективный диапазон WGBS 5–15×, предпочт. 10–15×' },
+    { key:'covMedian',  block:'coverage',   name:'Медианная глубина покрытия', short:'Медиана', unit:'×', value:v.covMedian, threshold:'≥ 5', pass: v.covMedian>=5, src:'Ziller, Nat Methods 2014 — нижняя граница 5×' },
+    { key:'cov0x',      block:'coverage',   name:'Доля оснований 0× (без покрытия)', short:'0× (без покрытия)', unit:'%', value:v.cov0x, threshold:'справочно', pass:true }, // при ~15× порога в литературе нет (Ziller 2014)
+    { key:'cov10',      block:'coverage',   name:'Доля оснований ≥ 10×', short:'≥ 10×', unit:'%', value:v.cov10, threshold:'справочно', pass:true }, // ENCODE ≥10× — уровень на сайт, не доля генома
+    { key:'cov30x',     block:'coverage',   name:'Доля оснований ≥ 30×', short:'≥ 30×', unit:'%', value:v.cov30x, threshold:'справочно', pass:true },
+    { key:'fold80',     block:'coverage',   name:'fold-80 (равномерность покрытия)', short:'fold-80', unit:'', value:v.fold80, threshold:'≤ 3', pass: v.fold80<=3, src:'Picard FOLD_80_BASE_PENALTY; клин. панели 1.77–3.57 = высокая равномерность' },
+    { key:'uniformity', block:'coverage',   name:'Равномерность покрытия', short:'Равномерность', unit:'', value:v.uniformity, threshold:'справочно', pass:true }, // кастомная метрика; стандарт равномерности — fold-80
+    // блок «CpG» (cpg)
+    { key:'cpgMean',    block:'cpg',        name:'Среднее покрытие CpG', short:'Среднее покрытие', unit:'×', value:v.cpgMean, threshold:'≥ 5', pass: v.cpgMean>=5, src:'Ziller 2014 / ENCODE — нижняя граница на CpG для оценки метилирования' },
+    { key:'cpg15x',     block:'cpg',        name:'Доля CpG ≥ 15×', short:'≥ 15×', unit:'%', value:v.cpg15x, threshold:'справочно', pass:true },
+    { key:'cpg10x',     block:'cpg',        name:'Доля CpG ≥ 10×', short:'≥ 10×', unit:'%', value:v.cpg10x, threshold:'справочно', pass:true },
+    { key:'cpgCov',     block:'cpg',        name:'Доля CpG ≥ 5×', short:'≥ 5×', unit:'%', value:v.cpgCov, threshold:'справочно', pass:true }, // стандарта на долю CpG на этой глубине нет
+    { key:'cpg0x',      block:'cpg',        name:'Доля CpG 0× (без покрытия)', short:'0× (без покрытия)', unit:'%', value:v.cpg0x, threshold:'справочно', pass:true },
+    { key:'cpgUnif',    block:'cpg',        name:'Равномерность CpG', short:'Равномерность', unit:'', value:v.cpgUnif, threshold:'справочно', pass:true },
+    { key:'mbias',      block:'cpg',        name:'M-bias, разница', short:'M-bias', unit:'', value:v.mbias, threshold:'справочно', pass:true }, // оценивается качественно (плоский M-bias), числового порога в литературе нет
+    // блок «Дупликаты» (duplicates)
+    { key:'dup',        block:'dup',        name:'Уровень дупликатов', short:'Уровень дупликатов', unit:'%', value:v.dup, threshold:'≤ 20', pass: v.dup<=20, src:'Sci Rep 2019 — рабочий диапазон ~5–20%, <10% хорошо' },
+    // блок «Размер вставки» (insert_size)
+    { key:'insertMean', block:'insert',     name:'Размер вставки, среднее', short:'Среднее', unit:'bp', value:v.insertMean, threshold:'справочно', pass:true },
+    { key:'insert',     block:'insert',     name:'Размер вставки, медиана', short:'Медиана', unit:'bp', value:v.insert, threshold:'100–200', pass: v.insert>=100&&v.insert<=200, src:'Snyder 2016 / Mouliere 2018 — мононуклеосомная cfDNA ~140–170 bp, ctDNA 90–150 bp' },
+    { key:'insertMode', block:'insert',     name:'Размер вставки, мода', short:'Мода', unit:'bp', value:v.insertMode, threshold:'справочно', pass:true },
+    // блок «Конверсия» (conversion_rate) — доля, как в файле
+    { key:'conversion', block:'conversion', name:'Эффективность бисульфитной конверсии', short:'Эффективность', unit:'', value:v.conversion, threshold:'≥ 0.99', pass: v.conversion>=0.99, src:'GRAIL CCGA 2022 (cfDNA MCED ≥0.99); ENCODE ≥0.98' },
+    // блок «Соотношение цепей» (strand_ratio)
+    { key:'strand',     block:'strand',     name:'Соотношение цепей', short:'Соотношение', unit:'', value:v.strand, threshold:'справочно', pass:true }, // ~1:1 ожидаемо (Bismark), числового порога в литературе нет
+    // блок «Риды» (reads) — по умолчанию скрыт: «Дополнительные метрики».
+    // Как в qc.json: after_filtering (основное) + before_filtering.
+    { key:'totalReads', block:'reads', name:'Всего ридов (после фильтрации)', short:'Ридов (после)', unit:'', value:v.totalReads, threshold:'справочно', pass:true },
+    { key:'totalBases', block:'reads', name:'Всего оснований (после фильтрации)', short:'Оснований (после)', unit:'', value:v.totalBases, threshold:'справочно', pass:true },
+    { key:'q20bases',   block:'reads', name:'Оснований Q20 (после фильтрации)', short:'Q20-осн. (после)', unit:'', value:v.q20bases, threshold:'справочно', pass:true },
+    { key:'q30bases',   block:'reads', name:'Оснований Q30 (после фильтрации)', short:'Q30-осн. (после)', unit:'', value:v.q30bases, threshold:'справочно', pass:true },
+    { key:'q20',        block:'reads', name:'Доля оснований Q20 (после фильтрации)', short:'Q20 (после)', unit:'', value:v.q20, threshold:'≥ 0.90', pass: v.q20>=0.90, src:'Illumina — Q20 = точность 99%' },
+    { key:'q30',        block:'reads', name:'Доля оснований Q30 (после фильтрации)', short:'Q30 (после)', unit:'', value:v.q30, threshold:'≥ 0.80', pass: v.q30>=0.80, src:'Illumina / NGS QC — ≥80% оснований Q30 = успешный ран' },
+    { key:'r1len',      block:'reads', name:'Средняя длина R1 (после фильтрации)', short:'Длина R1 (после)', unit:'bp', value:v.r1len, threshold:'справочно', pass:true },
+    { key:'r2len',      block:'reads', name:'Средняя длина R2 (после фильтрации)', short:'Длина R2 (после)', unit:'bp', value:v.r2len, threshold:'справочно', pass:true },
+    { key:'gc',         block:'reads', name:'GC-состав (после фильтрации)', short:'GC (после)', unit:'', value:v.gc, threshold:'справочно', pass:true },
+    { key:'brReads',    block:'reads', name:'Всего ридов (до фильтрации)', short:'Ридов (до)', unit:'', value:v.brReads, threshold:'справочно', pass:true },
+    { key:'brBases',    block:'reads', name:'Всего оснований (до фильтрации)', short:'Оснований (до)', unit:'', value:v.brBases, threshold:'справочно', pass:true },
+    { key:'brQ20bases', block:'reads', name:'Оснований Q20 (до фильтрации)', short:'Q20-осн. (до)', unit:'', value:v.brQ20bases, threshold:'справочно', pass:true },
+    { key:'brQ30bases', block:'reads', name:'Оснований Q30 (до фильтрации)', short:'Q30-осн. (до)', unit:'', value:v.brQ30bases, threshold:'справочно', pass:true },
+    { key:'brQ20',      block:'reads', name:'Доля оснований Q20 (до фильтрации)', short:'Q20 (до)', unit:'', value:v.brQ20, threshold:'справочно', pass:true },
+    { key:'brQ30',      block:'reads', name:'Доля оснований Q30 (до фильтрации)', short:'Q30 (до)', unit:'', value:v.brQ30, threshold:'справочно', pass:true },
+    { key:'brR1',       block:'reads', name:'Средняя длина R1 (до фильтрации)', short:'Длина R1 (до)', unit:'bp', value:v.brR1, threshold:'справочно', pass:true },
+    { key:'brR2',       block:'reads', name:'Средняя длина R2 (до фильтрации)', short:'Длина R2 (до)', unit:'bp', value:v.brR2, threshold:'справочно', pass:true },
+    { key:'brGc',       block:'reads', name:'GC-состав (до фильтрации)', short:'GC (до)', unit:'', value:v.brGc, threshold:'справочно', pass:true },
+  ];
+  const failed = metrics.filter(m=>!m.pass && m.threshold!=='справочно').map(m=>m.name);
+  return { metrics, failed, verdict: failed.length? 'Fail':'Pass' };
+}
+
+// демо-образец: значения генерируются в единицах и диапазонах реального qc.json
+function makeQC(rng, kit){
+  // reads: after_filtering и before_filtering (до фильтрации — ридов/оснований больше)
+  const readsA = between(rng, 180000000, 740000000), basesA = between(rng, 90000000000, 115000000000);
+  const q20a = between(rng, 0.96, 0.986, 4), q30a = between(rng, 0.925, 0.96, 4);
+  const basesB = Math.round(basesA * between(rng, 1.10, 1.22, 4)), readsB = Math.round(readsA * between(rng, 1.004, 1.03, 4));
+  const q20b = between(rng, 0.955, 0.977, 4), q30b = between(rng, 0.915, 0.95, 4);
+  const v = {
+    meanDepth: between(rng, 12, 22, 1), covMedian: between(rng, 12, 20),
+    cov0x: between(rng, 2, 9, 2), cov10: between(rng, 70, 90, 1), cov30x: between(rng, 2, 12, 1),
+    fold80: between(rng, 1.5, 2.2, 2), uniformity: between(rng, 0.96, 0.995, 4),
+    cpgMean: between(rng, 5.2, 8, 2), cpg15x: between(rng, 1.5, 6, 2), cpg10x: between(rng, 10, 20, 1),
+    cpgCov: between(rng, 46, 66, 1), cpg0x: between(rng, 8, 15, 1), cpgUnif: between(rng, 0.78, 0.9, 3),
+    mbias: between(rng, -0.06, 0.06, 3), dup: between(rng, 4, 13, 1),
+    insertMean: between(rng, 135, 150, 1), insert: between(rng, 138, 152), insertMode: between(rng, 140, 150),
+    conversion: between(rng, 0.991, 0.9985, 4), strand: between(rng, 0.985, 1.02, 3),
+    totalReads: readsA, totalBases: basesA, q20bases: Math.round(basesA*q20a), q30bases: Math.round(basesA*q30a),
+    q20: q20a, q30: q30a, r1len: between(rng, 125, 150), r2len: between(rng, 120, 145), gc: between(rng, 0.19, 0.24, 4),
+    brReads: readsB, brBases: basesB, brQ20bases: Math.round(basesB*q20b), brQ30bases: Math.round(basesB*q30b),
+    brQ20: q20b, brQ30: q30b, brR1: 150, brR2: 150, brGc: between(rng, 0.20, 0.25, 4),
+  };
+  // ~20% образцов — одна метрика вне порога (реализм потока)
+  if (rng() < 0.20){
+    const w = Math.floor(rng()*5);
+    if (w===0) v.conversion = between(rng, 0.983, 0.989, 4);      // < 0.99
+    else if (w===1) v.meanDepth = between(rng, 6, 9.5, 1);        // < 10×
+    else if (w===2) v.fold80 = between(rng, 3.1, 4.6, 2);         // > 3
+    else if (w===3){ v.q30 = between(rng, 0.72, 0.79, 4); v.q30bases = Math.round(v.totalBases*v.q30); } // < 0.80
+    else v.dup = between(rng, 21, 30, 1);                          // > 20
+  }
+  return qcMetricsFrom(v);
+}
+
+// реальный образец — ТОЧНЫЕ значения из RnDL_251101_05_NanoMetcfDNA.qc.json (без округления)
+function makeRealQC(){
+  return qcMetricsFrom({
+    meanDepth: 15.723873, covMedian: 15, cov0x: 4.8664, cov10: 78.5456, cov30x: 4.741, fold80: 1.747097, uniformity: 0.99284,
+    cpgMean: 5.35654, cpg15x: 2.20991, cpg10x: 13.6815, cpgCov: 52.2085, cpg0x: 10.9954, cpgUnif: 0.819006, mbias: -0.0403493,
+    dup: 5.0629, insertMean: 140.066427, insert: 142, insertMode: 145, conversion: 0.995861, strand: 1.00067,
+    // reads.after_filtering
+    totalReads: 728100162, totalBases: 95289458748, q20bases: 92713176174, q30bases: 90040579590,
+    q20: 0.972964, q30: 0.944916, r1len: 136, r2len: 125, gc: 0.203053,
+    // reads.before_filtering
+    brReads: 737587514, brBases: 110638127100, brQ20bases: 107083536687, brQ30bases: 103770859135,
+    brQ20: 0.967872, brQ30: 0.93793, brR1: 150, brR2: 150, brGc: 0.209115,
+  });
+}
+
+function makeScore(rng, forcedCancer){
+  const isCancer = forcedCancer!==undefined ? forcedCancer : rng()>0.55;
+  let cancerProb;
+  if (isCancer) cancerProb = between(rng, 0.62, 0.94, 3);
+  else          cancerProb = between(rng, 0.02, 0.34, 3);
+
+  // локализация: один доминирующий тип + фон
+  const weights = CANCER_TYPES.map(()=> rng());
+  const domIdx = Math.floor(rng()*CANCER_TYPES.length);
+  weights[domIdx] += isCancer ? 2.4 : 0.4;
+  const sum = weights.reduce((a,b)=>a+b,0);
+  const localization = {};
+  CANCER_TYPES.forEach((t,i)=> localization[t.key] = +(weights[i]/sum).toFixed(3));
+
+  let risk = 'low';
+  if (cancerProb>=0.7) risk='high'; else if (cancerProb>=0.45) risk='medium';
+  return { cancerProb, risk, localization, topType: CANCER_TYPES[domIdx].key };
+}
+
+// heatmap по панели маркеров (регион × [Образец, Норма, Опухоль]).
+// Образец тяготеет к норме; при онкопроцессе регионы соответствующей
+// локализации сильнее сдвигаются к «опухолевому» паттерну.
+function makeHeatmap(seqId, isCancer, topType){
+  const rng = rngFor(seqId+'_hm');
+  const regions = MARKER_PANEL;
+  const N = regions.length;
+  const norm = [], tumor = [], sample = [], loci = [];
+  regions.forEach((reg, i)=>{
+    const n = +(rng()*0.32).toFixed(3);           // норма — низкое
+    const t = +(0.55 + rng()*0.45).toFixed(3);    // опухоль — высокое
+    let shift = rng()*0.10;
+    if (isCancer) shift = (reg.cancer===topType) ? (0.40 + rng()*0.40) : (0.05 + rng()*0.22);
+    const s = +Math.min(1, n*(1-shift) + t*shift).toFixed(3);
+    norm.push(n); tumor.push(t); sample.push(s);
+    loci.push({ gene:reg.gene, pos:reg.pos, cancer:reg.cancer, sample:s, norm:n, delta:+(s-n).toFixed(3) });
+  });
+  const topLoci = [...loci].sort((a,b)=> b.delta - a.delta).slice(0, 8);
+  // «Норма» и «Опухоль» — усреднённые референсные профили (когорты из нескольких
+  // образцов), а не единичные пробы. Δ метилирования считается относительно
+  // усреднённой нормы. Способ агрегации по когорте — открытый вопрос (см. ревью).
+  return { N, regions, topLoci, rows:[
+    { label:'Образец', strong:true, values:sample },
+    { label:'Норма (референс)', values:norm },
+    { label:'Опухоль (референс)', values:tumor },
+  ]};
+}
+
+// --- сборка образцов ---
+function buildSamples(){
+  const runs = ['R2026-018','R2026-019','R2026-020','R2026-021'];
+  const statuses = [
+    // распределение статусов по образцам
+    'done','done','done','done','done','done','done','done','done','done','done','done',
+    'done','done','processing','processing','processing','queued','queued','queued','error','done','done','done'
+  ];
+  const out = [];
+  for (let i=0;i<statuses.length;i++){
+    const status = statuses[i];
+    const rng = rngFor('sample'+i);
+    const isFemale = rng()>0.5;
+    const codeSet = isFemale? FEMALE_CODES: MALE_CODES;
+    const pcode = pick(rng, codeSet) + String(between(rng,10,31)).padStart(2,'0') + String(between(rng,1,12)).padStart(2,'0') + String(between(rng,40,99));
+    const kit = KITS[i % 3];
+    const run = runs[i % runs.length];
+    const idx = 30 + i;
+    const isReal = i===0; // первый образец — реальный (значения QC из qc.json)
+    const seqId = isReal ? 'RnDL_251101_05_NanoMetcfDNA' : `EP_${run.slice(5)}_${String(idx).padStart(2,'0')}_${pcode}`;
+    const patientNo = 'P-' + String(hashStr(seqId)%900000+100000);
+    const day = 3 + Math.floor(i/6);
+    const date = `2026-07-0${day}`;
+
+    const done = status==='done';
+    const qc = isReal ? makeRealQC() : makeQC(rngFor(seqId+'_qc'), kit);
+    const sc = done ? makeScore(rngFor(seqId+'_sc')) : null;
+    const isCancer = sc ? sc.cancerProb>0.5 : (rng()>0.5);
+
+    // обратная связь — только для части завершённых
+    let feedback = { confirmed:null, note:'', date:'', locConfirmed:'' };
+    if (done && i%4===0 && sc){
+      const agree = sc.cancerProb>0.5 ? rng()>0.25 : rng()>0.15;
+      feedback = {
+        confirmed: sc.cancerProb>0.5 ? (agree?'yes':'no') : (agree?'no':'yes'),
+        note: '',
+        date: `2026-07-0${day+1}`,
+        locConfirmed: (sc.cancerProb>0.5 && agree) ? sc.topType : ''
+      };
+    }
+
+    out.push({
+      i, id: 5100+i, seqId, run, ref:REF, kit,
+      patientCode: pcode, patientNo, fio: makeFio(seqId, isFemale), sex: isFemale?'Ж':'М', age: between(rng,38,74),
+      contractor: pick(rng, ['ООО «Медикал Поинт»','АО «ЕМЦ»','КДЛ ДОМОДЕДОВО','Внутр. валидация','ООО «Юни Медика»']),
+      date, status,
+      qc, score: sc, isCancer,
+      heatmap: makeHeatmap(seqId, isCancer, sc ? sc.topType : null),
+      feedback,
+    });
+  }
+  return out;
+}
+
+const SAMPLES = buildSamples();
+const sampleById = id => SAMPLES.find(s=> String(s.id)===String(id));
+
+// --- очередь (из образцов + тайминги/стадии) ---
+function buildQueue(){
+  return SAMPLES.filter(s=> s.status!=='queued' || true).map(s=>{
+    const rng = rngFor(s.seqId+'_q');
+    let stageIdx, stageStatuses;
+    if (s.status==='done'){ stageIdx = PIPELINE_STAGES.length; }
+    else if (s.status==='processing'){ stageIdx = between(rng,2,7); }
+    else if (s.status==='error'){ stageIdx = between(rng,3,6); }
+    else { stageIdx = 0; }
+
+    const created = `07 июл. ${String(between(rng,9,17)).padStart(2,'0')}:${String(between(rng,10,59)).padStart(2,'0')}`;
+    const startAt = s.status==='queued'? '—' : created.replace(/(\d+):(\d+)/,(m,h,mm)=>`${h}:${String((+mm+2)%60).padStart(2,'0')}`);
+    const endAt   = s.status==='done'? created.replace(/(\d+):(\d+)/,(m,h,mm)=>`${(+h+1)}:${String((+mm+5)%60).padStart(2,'0')}`) : '—';
+
+    const stages = PIPELINE_STAGES.map((name,idx)=>{
+      let st='wait';
+      if (s.status==='error' && idx===stageIdx) st='error';
+      else if (idx<stageIdx) st='done';
+      else if (idx===stageIdx && s.status==='processing') st='active';
+      return { name, status: st, dur: idx<stageIdx? `${between(rngFor(s.seqId+idx),1,9)}м ${between(rngFor(s.seqId+idx+'s'),1,59)}с` : '' };
+    });
+    return { ...s, stageIdx, stages, created, startAt, endAt,
+      progress: Math.round(stageIdx/PIPELINE_STAGES.length*100) };
+  }).sort((a,b)=> b.id-a.id);
+}
+const QUEUE = buildQueue();
+
+// --- хранилище (загрузки → образцы-папки) ---
+function buildStorage(){
+  const runs = ['R2026-021','R2026-020','R2026-019','R2026-018'];
+  return runs.map((run, ri)=>{
+    const rng = rngFor(run+'_st');
+    const samplesInRun = SAMPLES.filter(s=> s.run===run);
+    const files = samplesInRun.map(s=>({
+      basename: s.seqId,
+      sizeGb: between(rngFor(s.seqId+'_sz'), 3.2, 9.8, 1),
+      kit: s.kit.label,
+      ready: true,
+      launched: s.status!=='queued',
+      status: s.status,
+      id: s.id,
+    }));
+    // пара «сырых, ещё не запущенных» папок в самой свежей загрузке
+    if (ri===0){
+      for (let k=0;k<2;k++){
+        const sid = `EP_021_${90+k}_NEW${between(rng,100,999)}`;
+        files.unshift({ basename:sid, sizeGb:between(rng,3.5,8.5,1), kit:'Vazyme', ready:true, launched:false, status:'new', id:'new'+k });
+      }
+    }
+    return {
+      run, ref:REF,
+      created: `0${4-ri} июл. 2026, ${String(8+ri).padStart(2,'0')}:${String(between(rng,10,55)).padStart(2,'0')}`,
+      files,
+    };
+  });
+}
+const STORAGE = buildStorage();
+
+// --- мониторинг монтирований (Главная) ---
+const MOUNTS = [
+  { name:'storage-38 → srv-72',  path:'/mnt/storage38/epiprint',    status:'ok',   note:'чтение' },
+  { name:'srv-72 → srv-60',      path:'/mnt/mirror60/epiprint',     status:'ok',   note:'зеркало' },
+  { name:'srv-60 → web',         path:'/var/www/epiprint/storage',  status:'ok',   note:'веб' },
+  { name:'cluster-BS → srv-72',  path:'/mnt/cluster/results',       status:'warn', note:'высокая нагрузка' },
+  { name:'backup-41',            path:'/mnt/backup41/epiprint',     status:'ok',   note:'резерв' },
+];
+
+// --- агрегаты для дашборда ---
+const STATS = (()=>{
+  const done = SAMPLES.filter(s=>s.status==='done');
+  const proc = SAMPLES.filter(s=>s.status==='processing');
+  const q    = SAMPLES.filter(s=>s.status==='queued');
+  const err  = SAMPLES.filter(s=>s.status==='error');
+  const qcPass = done.filter(s=>s.qc.verdict==='Pass').length;
+  const highRisk = done.filter(s=>s.score && s.score.risk==='high').length;
+  const withFb = SAMPLES.filter(s=>s.feedback.confirmed).length;
+  return {
+    total: SAMPLES.length, done: done.length, processing: proc.length, queued: q.length, error: err.length,
+    qcPassRate: done.length? Math.round(qcPass/done.length*100):0,
+    highRisk, withFb,
+    throughput7d: [3,5,4,6,2,5,4], // образцов/день за неделю
+  };
+})();
+
+const CURRENT_USER = { initials:'ВЮ', name:'Варвара Юхина', role:'Биоинформатик / администратор' };
+
+</script>
+<script>
+/* ============================================================
+   EpiPrint — общий слой прототипа: оболочка, иконки, компоненты.
+   ============================================================ */
+
+/* ---------- Lucide icons (MIT) ---------- */
+const ICONS = {
+  'fingerprint':'<path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/><path d="M8.65 22c.21-.66.45-1.32.57-2"/><path d="M14 13.12c0 2.38 0 6.38-1 8.88"/><path d="M2 16h.01"/><path d="M21.8 16c.2-2 .131-5.354 0-6"/><path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/>',
+  'layout-dashboard':'<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  'hard-drive':'<line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/>',
+  'list-checks':'<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+  'microscope':'<path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/>',
+  'shield-check':'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  'git-compare':'<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/>',
+  'activity':'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  'file-text':'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+  'file-json':'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 12a1 1 0 0 0-1 1v1a1 1 0 0 1-1 1 1 1 0 0 1 1 1v1a1 1 0 0 0 1 1"/><path d="M14 18a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1 1 1 0 0 1-1-1v-1a1 1 0 0 0-1-1"/>',
+  'search':'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  'download':'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  'play':'<polygon points="6 3 20 12 6 21 6 3"/>',
+  'refresh-cw':'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  'check':'<path d="M20 6 9 17l-5-5"/>',
+  'x':'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  'circle-check':'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  'circle-x':'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+  'alert-triangle':'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  'clock':'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  'folder':'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  'server':'<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
+  'printer':'<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
+  'arrow-left':'<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'chevron-right':'<path d="m9 18 6-6-6-6"/>',
+  'users':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'flask':'<path d="M10 2v7.31"/><path d="M14 9.3V1.99"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/>',
+  'dna':'<path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="m17 6-2.5-2.5"/><path d="m14 8-1-1"/><path d="m7 18 2.5 2.5"/><path d="m3.5 14.5.5.5"/><path d="m20 9 .5.5"/><path d="m6.5 12.5 1 1"/><path d="m16.5 10.5 1 1"/><path d="m10 16 1.5 1.5"/>',
+  'table':'<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>',
+  'bell':'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  'menu':'<line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/>',
+};
+function icon(name, cls){ return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="ic-svg ${cls||''}">${ICONS[name]||''}</svg>`; }
+
+/* ---------- навигация ---------- */
+const NAV = [
+  { group:'Обзор' },
+  { key:'index',   label:'Главная',            icon:'layout-dashboard', href:'index.html' },
+  { group:'Обработка' },
+  { key:'storage', label:'Хранилище',          icon:'hard-drive', href:'storage.html' },
+  { key:'queue',   label:'Очередь',            icon:'list-checks', href:'queue.html' },
+  { group:'Результаты' },
+  { key:'samples', label:'Образцы',            icon:'microscope', href:'samples.html' },
+  { key:'qc',      label:'Контроль качества',  icon:'shield-check', href:'qc.html' },
+];
+
+function renderShell(){
+  const active = document.body.dataset.page;
+  const newCount = STORAGE.reduce((a,r)=> a + r.files.filter(f=>!f.launched).length, 0);
+  const activeCount = SAMPLES.filter(s=> s.status==='processing'||s.status==='queued').length;
+
+  const nav = NAV.map(n=>{
+    if (n.group) return `<div class="nav__group">${n.group}</div>`;
+    let badge = '';
+    if (n.key==='storage' && newCount) badge = `<span class="nav__badge">${newCount}</span>`;
+    if (n.key==='queue' && activeCount) badge = `<span class="nav__badge">${activeCount}</span>`;
+    return `<a class="nav__item ${active===n.key?'is-active':''}" href="${n.href}">${icon(n.icon)}<span>${n.label}</span>${badge}</a>`;
+  }).join('');
+
+  const sb = document.getElementById('sidebar');
+  if (sb) sb.innerHTML = `
+    <div class="brand">
+      <div class="brand__mark">${icon('fingerprint')}</div>
+      <div><div class="brand__name">EpiPrint</div><div class="brand__sub">cfDNA Methylation</div></div>
+    </div>
+    <nav class="nav">${nav}</nav>
+    <div class="sidebar__foot">Прототип · v0.1 · демо-данные</div>`;
+
+  const tb = document.getElementById('topbar');
+  if (tb){
+    const title = tb.dataset.title || '';
+    const crumb = tb.dataset.crumb ? `<span class="topbar__crumb">${tb.dataset.crumb}</span>` : '';
+    tb.innerHTML = `
+      <div class="topbar__title">${title}</div>${crumb}
+      <div class="topbar__spacer"></div>
+      <label class="topbar__search">${icon('search')}<input placeholder="Поиск по Seq ID…" id="globalSearch"></label>
+      <button class="btn btn--icon btn--ghost" title="Уведомления">${icon('bell')}</button>
+      <div class="topbar__user"><div class="avatar">${CURRENT_USER.initials}</div></div>`;
+    const gs = document.getElementById('globalSearch');
+    if (gs) gs.addEventListener('keydown', e=>{ if(e.key==='Enter'&&gs.value.trim()){ location.href='samples.html?q='+encodeURIComponent(gs.value.trim()); }});
+  }
+}
+
+/* ---------- форматтеры / бейджи ---------- */
+const STATUS_META = {
+  done:      { cls:'done',   label:'Завершён' },
+  processing:{ cls:'proc',   label:'В обработке' },
+  queued:    { cls:'queued', label:'В очереди' },
+  error:     { cls:'error',  label:'Ошибка' },
+  new:       { cls:'muted',  label:'Не запущен' },
+};
+function statusBadge(s){ const m=STATUS_META[s]||STATUS_META.new; return `<span class="badge badge--${m.cls}"><span class="dot"></span>${m.label}</span>`; }
+function qcBadge(v){ return v==='Pass' ? `<span class="badge badge--pass">${icon('check')}Pass</span>` : `<span class="badge badge--fail">${icon('x')}Fail</span>`; }
+const RISK_META = { high:{cls:'high',label:'Высокий риск'}, medium:{cls:'med',label:'Средний риск'}, low:{cls:'low',label:'Низкий риск'} };
+function riskBadge(r){ const m=RISK_META[r]; return `<span class="badge badge--${m.cls}">${m.label}</span>`; }
+function cancerLabel(key){ const t=CANCER_TYPES.find(t=>t.key===key); return t?t.label:'—'; }
+function pct(v,dp=0){ return (v*100).toFixed(dp)+'%'; }
+
+/* ---------- хитмап цвет: 0=синий … 1=красный ---------- */
+function lerp(a,b,t){ return a+(b-a)*t; }
+function heatColor(v){
+  const c0=[44,111,179], cm=[244,242,238], c1=[192,57,43];
+  let r,g,b;
+  if (v<0.5){ const t=v/0.5; r=lerp(c0[0],cm[0],t); g=lerp(c0[1],cm[1],t); b=lerp(c0[2],cm[2],t); }
+  else { const t=(v-0.5)/0.5; r=lerp(cm[0],c1[0],t); g=lerp(cm[1],c1[1],t); b=lerp(cm[2],c1[2],t); }
+  return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+}
+function heatmapHtml(hm){
+  const rows = hm.rows.map(row=>{
+    const cells = row.values.map(v=>`<div class="hm-cell" style="background:${heatColor(v)}" title="${v.toFixed(2)}"></div>`).join('');
+    return `<div class="hm-row"><div class="hm-label ${row.strong?'strong':''}">${row.label}</div>${cells}</div>`;
+  }).join('');
+  return `<div class="heatmap"><div class="heatmap__inner">${rows}</div></div>
+    <div class="hm-scale"><span>0 · низкое</span><div class="hm-scale__bar"></div><span>1 · высокое</span>
+    <span class="muted" style="margin-left:auto">${hm.N} маркерных регионов</span></div>`;
+}
+
+/* ---------- гейдж вероятности ---------- */
+function gaugeHtml(prob, risk){
+  const r=64, c=2*Math.PI*r, off=c*(1-prob);
+  const col = risk==='high'?'var(--risk-high)':risk==='medium'?'var(--risk-med)':'var(--risk-low)';
+  return `<div class="gauge"><svg width="150" height="150" viewBox="0 0 150 150">
+    <circle cx="75" cy="75" r="${r}" fill="none" stroke="var(--line-2)" stroke-width="13"/>
+    <circle cx="75" cy="75" r="${r}" fill="none" stroke="${col}" stroke-width="13" stroke-linecap="round"
+      stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
+  </svg><div class="gauge__center"><div class="gauge__pct" style="color:${col}">${Math.round(prob*100)}%</div><div class="gauge__cap">онкопроцесс</div></div></div>`;
+}
+
+/* ---------- бары локализации ---------- */
+function localizationBars(localization, topType){
+  const entries = CANCER_TYPES.map(t=>({ ...t, v: localization[t.key] })).sort((a,b)=> b.v-a.v);
+  return `<div class="locbars">` + entries.map((e,i)=>{
+    const isTop = e.key===topType;
+    const col = isTop ? 'var(--brand-600)' : 'var(--ink-3)';
+    return `<div class="locbar ${isTop?'top':''}">
+      <div class="locbar__name">${e.label}</div>
+      <div class="locbar__track"><div class="locbar__fill" style="width:${Math.max(2,e.v*100).toFixed(0)}%;background:${col}"></div></div>
+      <div class="locbar__val">${pct(e.v,1)}</div>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+/* ---------- тосты ---------- */
+function toast(msg){
+  let host = document.querySelector('.toast-host');
+  if (!host){ host=document.createElement('div'); host.className='toast-host'; document.body.appendChild(host); }
+  const t=document.createElement('div'); t.className='toast'; t.innerHTML=`${icon('circle-check')}<span>${msg}</span>`;
+  host.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3200);
+}
+
+/* ---------- утилиты ---------- */
+function qs(name){ return new URLSearchParams(location.search).get(name); }
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- локальное хранилище обратной связи (демо) ---------- */
+const FB_KEY = 'epiprint_feedback';
+function loadFeedback(){ try{ return JSON.parse(localStorage.getItem(FB_KEY)||'{}'); }catch(e){ return {}; } }
+function saveFeedback(id, data){ const all=loadFeedback(); all[id]=data; localStorage.setItem(FB_KEY, JSON.stringify(all)); }
+function getFeedback(sample){ const all=loadFeedback(); return all[sample.id] || sample.feedback; }
+
+/* shell handled by min router */
+
+</script>
+<script>
+/* Логотип лаборатории (Геномед), data-URI. */
+const GENOMED_LOGO = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+IDxzdmcgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIiB4bWxuczpjYz0iaHR0cDovL2NyZWF0aXZlY29tbW9ucy5vcmcvbnMjIiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiIHhtbG5zOnN2Zz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIGlkPSJzdmc4IiB2aWV3Qm94PSIwIDAgNDguNTYzODg5IDI0LjUxOTA1NCIgaGVpZ2h0PSIyNC41MTkwNTRtbSIgd2lkdGg9IjQ4LjU2Mzg4OW1tIj4gPGRlZnMgaWQ9ImRlZnMyIj4gPGxpbmVhckdyYWRpZW50IGlkPSJsaW5lYXJHcmFkaWVudDExMzkiPiA8c3RvcCBpZD0ic3RvcDExMzUiIG9mZnNldD0iMCIgc3R5bGU9InN0b3AtY29sb3I6IzEwNzNhZDtzdG9wLW9wYWNpdHk6MSI+PC9zdG9wPiA8c3RvcCBzdHlsZT0ic3RvcC1jb2xvcjojMTQ5YWNkO3N0b3Atb3BhY2l0eToxOyIgb2Zmc2V0PSIwLjQ4OTYyNTE2IiBpZD0ic3RvcDExNTciPjwvc3RvcD4gPHN0b3Agc3R5bGU9InN0b3AtY29sb3I6IzE1OWVkMDtzdG9wLW9wYWNpdHk6MSIgb2Zmc2V0PSIwLjU3OTQwMjE1IiBpZD0ic3RvcDExNDEiPjwvc3RvcD4gPHN0b3AgaWQ9InN0b3AxMTU5IiBvZmZzZXQ9IjAuNjY1NjczMjYiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMTk5ZDQ7c3RvcC1vcGFjaXR5OjEiPjwvc3RvcD4gPHN0b3AgaWQ9InN0b3AxMTM3IiBvZmZzZXQ9IjEiIHN0eWxlPSJzdG9wLWNvbG9yOiMxODc0YTY7c3RvcC1vcGFjaXR5OjEiPjwvc3RvcD4gPC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGlkPSJsaW5lYXJHcmFkaWVudDExMjMiPiA8c3RvcCBzdHlsZT0ic3RvcC1jb2xvcjojMTA3M2FkO3N0b3Atb3BhY2l0eToxIiBvZmZzZXQ9IjAiIGlkPSJzdG9wMTExOSI+PC9zdG9wPiA8c3RvcCBzdHlsZT0ic3RvcC1jb2xvcjojMTg3NGE2O3N0b3Atb3BhY2l0eToxIiBvZmZzZXQ9IjEiIGlkPSJzdG9wMTEyMSI+PC9zdG9wPiA8L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgaWQ9ImxpbmVhckdyYWRpZW50MTExMSI+IDxzdG9wIHN0eWxlPSJzdG9wLWNvbG9yOiMxMDczYWQ7c3RvcC1vcGFjaXR5OjEiIG9mZnNldD0iMCIgaWQ9InN0b3AxMTA3Ij48L3N0b3A+IDxzdG9wIHN0eWxlPSJzdG9wLWNvbG9yOiMxODc0YTY7c3RvcC1vcGFjaXR5OjEiIG9mZnNldD0iMSIgaWQ9InN0b3AxMTA5Ij48L3N0b3A+IDwvbGluZWFyR3JhZGllbnQ+IDxsaW5lYXJHcmFkaWVudCBpZD0ibGluZWFyR3JhZGllbnQxMTA1Ij4gPHN0b3Agc3R5bGU9InN0b3AtY29sb3I6IzEwNzNhZDtzdG9wLW9wYWNpdHk6MSIgb2Zmc2V0PSIwIiBpZD0ic3RvcDExMDEiPjwvc3RvcD4gPHN0b3Agc3R5bGU9InN0b3AtY29sb3I6IzE4NzRhNjtzdG9wLW9wYWNpdHk6MSIgb2Zmc2V0PSIxIiBpZD0ic3RvcDExMDMiPjwvc3RvcD4gPC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGlkPSJsaW5lYXJHcmFkaWVudDkzNCI+IDxzdG9wIGlkPSJzdG9wOTMwIiBvZmZzZXQ9IjAiIHN0eWxlPSJzdG9wLWNvbG9yOiMwMjhjY2E7c3RvcC1vcGFjaXR5OjE7Ij48L3N0b3A+IDxzdG9wIHN0eWxlPSJzdG9wLWNvbG9yOiMwMjgzY2I7c3RvcC1vcGFjaXR5OjEiIG9mZnNldD0iMC4wNzMwOTU0MyIgaWQ9InN0b3A5NDAiPjwvc3RvcD4gPHN0b3Agc3R5bGU9InN0b3AtY29sb3I6I2ZmZmZmZjtzdG9wLW9wYWNpdHk6MSIgb2Zmc2V0PSIwLjQ4MzIxMjQxIiBpZD0ic3RvcDkzOCI+PC9zdG9wPiA8c3RvcCBpZD0ic3RvcDk0MiIgb2Zmc2V0PSIwLjg2MTc2NjEiIHN0eWxlPSJzdG9wLWNvbG9yOiNhOGNhZWE7c3RvcC1vcGFjaXR5OjEiPjwvc3RvcD4gPHN0b3AgaWQ9InN0b3A5MzIiIG9mZnNldD0iMSIgc3R5bGU9InN0b3AtY29sb3I6IzExODhjOTtzdG9wLW9wYWNpdHk6MSI+PC9zdG9wPiA8L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgaWQ9ImxpbmVhckdyYWRpZW50OTE2Ij4gPHN0b3AgaWQ9InN0b3A5MTIiIG9mZnNldD0iMCIgc3R5bGU9InN0b3AtY29sb3I6IzAyOGNjYTtzdG9wLW9wYWNpdHk6MSI+PC9zdG9wPiA8c3RvcCBzdHlsZT0ic3RvcC1jb2xvcjojMDM4NWNiO3N0b3Atb3BhY2l0eToxIiBvZmZzZXQ9IjAuMjU2MDk3OTciIGlkPSJzdG9wOTIwIj48L3N0b3A+IDxzdG9wIGlkPSJzdG9wOTgyIiBvZmZzZXQ9IjAuODk3NTY0NTMiIHN0eWxlPSJzdG9wLWNvbG9yOiNlOGY0ZmE7c3RvcC1vcGFjaXR5OjE7Ij48L3N0b3A+IDxzdG9wIGlkPSJzdG9wOTE0IiBvZmZzZXQ9IjEiIHN0eWxlPSJzdG9wLWNvbG9yOiM4M2MzZTU7c3RvcC1vcGFjaXR5OjEiPjwvc3RvcD4gPC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGlkPSJsaW5lYXJHcmFkaWVudDg1NiI+IDxzdG9wIHN0eWxlPSJzdG9wLWNvbG9yOiMwMzg2Y2M7c3RvcC1vcGFjaXR5OjEiIG9mZnNldD0iMCIgaWQ9InN0b3A4NTAiPjwvc3RvcD4gPHN0b3AgaWQ9InN0b3A4NjQiIG9mZnNldD0iMC4xMTk4NDk1NSIgc3R5bGU9InN0b3AtY29sb3I6IzE3OWVkYTtzdG9wLW9wYWNpdHk6MSI+PC9zdG9wPiA8c3RvcCBpZD0ic3RvcDg1MiIgb2Zmc2V0PSIwLjQ3OTQwOTI1IiBzdHlsZT0ic3RvcC1jb2xvcjojZmZmZmZmO3N0b3Atb3BhY2l0eToxIj48L3N0b3A+IDxzdG9wIHN0eWxlPSJzdG9wLWNvbG9yOiMxNzk2ZDc7c3RvcC1vcGFjaXR5OjEiIG9mZnNldD0iMC45MTk0NDE0IiBpZD0ic3RvcDg2MiI+PC9zdG9wPiA8c3RvcCBzdHlsZT0ic3RvcC1jb2xvcjojMTc4NWQwO3N0b3Atb3BhY2l0eToxIiBvZmZzZXQ9IjEiIGlkPSJzdG9wODU0Ij48L3N0b3A+IDwvbGluZWFyR3JhZGllbnQ+IDxsaW5lYXJHcmFkaWVudCBpZD0ibGluZWFyR3JhZGllbnQ4MzgiPiA8c3RvcCBpZD0ic3RvcDgzNCIgb2Zmc2V0PSIwIiBzdHlsZT0ic3RvcC1jb2xvcjojMDM4NmNjO3N0b3Atb3BhY2l0eToxIj48L3N0b3A+IDxzdG9wIHN0eWxlPSJzdG9wLWNvbG9yOiMxNTliZGI7c3RvcC1vcGFjaXR5OjEiIG9mZnNldD0iMC4xMDEwOTk1NiIgaWQ9InN0b3A4NTgiPjwvc3RvcD4gPHN0b3Agc3R5bGU9InN0b3AtY29sb3I6I2ZmZmZmZjtzdG9wLW9wYWNpdHk6MSIgb2Zmc2V0PSIwLjUyMDEzMDE2IiBpZD0ic3RvcDg0MiI+PC9zdG9wPiA8c3RvcCBpZD0ic3RvcDg2MCIgb2Zmc2V0PSIwLjg2MzA2MzE2IiBzdHlsZT0ic3RvcC1jb2xvcjojMjlhM2RlO3N0b3Atb3BhY2l0eToxIj48L3N0b3A+IDxzdG9wIGlkPSJzdG9wODM2IiBvZmZzZXQ9IjEiIHN0eWxlPSJzdG9wLWNvbG9yOiMxNzg1ZDA7c3RvcC1vcGFjaXR5OjEiPjwvc3RvcD4gPC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoMC4zMzQwODY5MSwtMTMuMTk2NDMzKSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIHkyPSIyNjkuOTY3MzUiIHgyPSIxODguMzk1NjgiIHkxPSIyNjMuMDUzNjgiIHgxPSIxODguMzkzOTgiIGlkPSJsaW5lYXJHcmFkaWVudDg0MCIgeGxpbms6aHJlZj0iI2xpbmVhckdyYWRpZW50ODM4Ij48L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgeTI9IjI3MC4zNjg5NiIgeDI9IjE4OC4zNDg0MiIgeTE9IjI2Mi43NDY1OCIgeDE9IjE4OC4zOTM5OCIgZ3JhZGllbnRUcmFuc2Zvcm09Im1hdHJpeCgxLDAsMCwtMSwwLjQzNDMxMjk4LDUxOS42OTY5NSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiBpZD0ibGluZWFyR3JhZGllbnQ4NDgiIHhsaW5rOmhyZWY9IiNsaW5lYXJHcmFkaWVudDg1NiI+PC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoMC4wMzAyNjAyOCkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiB5Mj0iMjU3LjYzMzgyIiB4Mj0iMTY0LjYwMjk0IiB5MT0iMjM3LjUzMjUzIiB4MT0iMTY0Ljk3MjEyIiBpZD0ibGluZWFyR3JhZGllbnQ5MTgiIHhsaW5rOmhyZWY9IiNsaW5lYXJHcmFkaWVudDkxNiI+PC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoMC4wMzAyNjAyOCkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiB5Mj0iMjU5LjE1NTEyIiB4Mj0iMTY3LjQ5MDcxIiB5MT0iMjM1LjQzNzEzIiB4MT0iMTcwLjM3Mjc3IiBpZD0ibGluZWFyR3JhZGllbnQ5MzYiIHhsaW5rOmhyZWY9IiNsaW5lYXJHcmFkaWVudDkzNCI+PC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGdyYWRpZW50VHJhbnNmb3JtPSJzY2FsZSgzLjc3OTUyNzYpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgeTI9IjIyMi45ODMwNSIgeDI9IjE2Ny4zOTQyNCIgeTE9IjIxNC45NTY0NSIgeDE9IjE2Ny40NDE0OCIgaWQ9ImxpbmVhckdyYWRpZW50MTA2OSIgeGxpbms6aHJlZj0iI2xpbmVhckdyYWRpZW50MTEyMyI+PC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiB5Mj0iMjIyLjk4MzA1IiB4Mj0iMTY3LjM5NDI0IiB5MT0iMjE0Ljk1NjQ1IiB4MT0iMTY3LjQ0MTQ4IiBpZD0ibGluZWFyR3JhZGllbnQxMDczIiB4bGluazpocmVmPSIjbGluZWFyR3JhZGllbnQxMTExIj48L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIHkyPSIyMTYuNzYyMTYiIHgyPSIxNzIuMTk4MyIgeTE9IjIwOC45NTk1IiB4MT0iMTcyLjI0NjkyIiBpZD0ibGluZWFyR3JhZGllbnQxMDc1IiB4bGluazpocmVmPSIjbGluZWFyR3JhZGllbnQxMTA1Ij48L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgeTI9IjIyMy4xMTc0NiIgeDI9IjE4My40NDcxMyIgeTE9IjIxNS4xMzI4NyIgeDE9IjE4My40NzkzNCIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgwLDI2LjI2OTM0NSkiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiBpZD0ibGluZWFyR3JhZGllbnQxMTMzIiB4bGluazpocmVmPSIjbGluZWFyR3JhZGllbnQxMTM5Ij48L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgeTI9IjIxNi43NjIxNiIgeDI9IjE3Mi4xOTgzIiB5MT0iMjA4Ljk1OTUiIHgxPSIxNzIuMjQ2OTIiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIiBpZD0ibGluZWFyR3JhZGllbnQxMTgyIiB4bGluazpocmVmPSIjbGluZWFyR3JhZGllbnQxMTA1Ij48L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgeTI9IjI1OS4xNTUxMiIgeDI9IjE2Ny40OTA3MSIgeTE9IjIzNS40MzcxMyIgeDE9IjE3MC4zNzI3NyIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgwLjAzMDI2MDI4KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIGlkPSJsaW5lYXJHcmFkaWVudDExODQiIHhsaW5rOmhyZWY9IiNsaW5lYXJHcmFkaWVudDkzNCI+PC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IHkyPSIyNzAuMzY4OTYiIHgyPSIxODguMzQ4NDIiIHkxPSIyNjIuNzQ2NTgiIHgxPSIxODguMzkzOTgiIGdyYWRpZW50VHJhbnNmb3JtPSJtYXRyaXgoMSwwLDAsLTEsMC40MzQzMTI5OCw1MTkuNjk2OTUpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgaWQ9ImxpbmVhckdyYWRpZW50MTE4NiIgeGxpbms6aHJlZj0iI2xpbmVhckdyYWRpZW50ODU2Ij48L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgeTI9IjI2OS45NjczNSIgeDI9IjE4OC4zOTU2OCIgeTE9IjI2My4wNTM2OCIgeDE9IjE4OC4zOTM5OCIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgwLjMzNDA4NjkxLC0xMy4xOTY0MzMpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgaWQ9ImxpbmVhckdyYWRpZW50MTE4OCIgeGxpbms6aHJlZj0iI2xpbmVhckdyYWRpZW50ODM4Ij48L2xpbmVhckdyYWRpZW50PiA8bGluZWFyR3JhZGllbnQgeTI9IjI1Ny42MzM4MiIgeDI9IjE2NC42MDI5NCIgeTE9IjIzNy41MzI1MyIgeDE9IjE2NC45NzIxMiIgZ3JhZGllbnRUcmFuc2Zvcm09InRyYW5zbGF0ZSgwLjAzMDI2MDI4KSIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiIGlkPSJsaW5lYXJHcmFkaWVudDExOTAiIHhsaW5rOmhyZWY9IiNsaW5lYXJHcmFkaWVudDkxNiI+PC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IHkyPSIyMjMuMTE3NDYiIHgyPSIxODMuNDQ3MTMiIHkxPSIyMTUuMTMyODciIHgxPSIxODMuNDc5MzQiIGdyYWRpZW50VHJhbnNmb3JtPSJ0cmFuc2xhdGUoMCwyNi4yNjkzNDUpIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgaWQ9ImxpbmVhckdyYWRpZW50MTE5MiIgeGxpbms6aHJlZj0iI2xpbmVhckdyYWRpZW50MTEzOSI+PC9saW5lYXJHcmFkaWVudD4gPC9kZWZzPiA8bWV0YWRhdGEgaWQ9Im1ldGFkYXRhNSI+PC9tZXRhZGF0YT4gPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTE1NS4zMTQ3NCwtMjM0LjU5MTc2KSIgc3R5bGU9ImRpc3BsYXk6aW5saW5lIiBpZD0ibGF5ZXIxIj4gPGcgaWQ9InRleHQxMDA3IiBzdHlsZT0iZm9udC1zdHlsZTpub3JtYWw7Zm9udC12YXJpYW50Om5vcm1hbDtmb250LXdlaWdodDpub3JtYWw7Zm9udC1zdHJldGNoOm5vcm1hbDtmb250LXNpemU6Ny40NzM5MjY1NHB4O2xpbmUtaGVpZ2h0OjEuMjU7Zm9udC1mYW1pbHk6VGFob21hOy1pbmtzY2FwZS1mb250LXNwZWNpZmljYXRpb246VGFob21hO2xldHRlci1zcGFjaW5nOjBweDt3b3JkLXNwYWNpbmc6MHB4O2ZpbGw6dXJsKCNsaW5lYXJHcmFkaWVudDExODIpO2ZpbGwtb3BhY2l0eToxO3N0cm9rZTpub25lO3N0cm9rZS13aWR0aDowLjE4Njg0ODE2IiB0cmFuc2Zvcm09InNjYWxlKDAuOTcyMTAxNTUsMS4wMjg2OTkxKSIgYXJpYS1sYWJlbD0iTSI+PC9nPiA8ZyBpZD0iZzExODAiPiA8cGF0aCBzdHlsZT0iZGlzcGxheTppbmxpbmU7ZmlsbDp1cmwoI2xpbmVhckdyYWRpZW50MTE4NCk7ZmlsbC1vcGFjaXR5OjE7c3Ryb2tlOm5vbmU7c3Ryb2tlLXdpZHRoOjAuMjY0NTgzMzJweDtzdHJva2UtbGluZWNhcDpidXR0O3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2Utb3BhY2l0eToxIiBkPSJtIDE3NC4xMTc0MywyNDEuNjg4OTcgYyAwLjA2MTMsLTAuMjAzNCAwLjE4MzgsLTAuNjA5ODcgMC4xMzA5MSwtMS4xMzAxNiAtMC4wNTI5LC0wLjUyMDI5IC0wLjI4MTM1LC0xLjE1NTU1IC0wLjc3MTIxLC0xLjc0MDA0IC0wLjQ4OTg1LC0wLjU4NDUgLTEuMjQxNzIsLTEuMTE5MTYgLTEuOTMyMTMsLTEuNDgzODcgLTAuNjkwNDIsLTAuMzY0NzIgLTEuMzE5NTcsLTAuNTU5NTkgLTIuMDIxMTksLTAuNjAxMzggLTAuNzAxNjIsLTAuMDQxOCAtMS40NzUzOCwwLjA2OTUgLTIuMjQ5NDksMC4yOTUwNyAtMC43NzQxLDAuMjI1NTMgLTEuNTQ3NzcsMC41NjUwNSAtMi4zMzAyNywxLjAyNzI4IC0wLjc4MjQ5LDAuNDYyMjMgLTEuNTcyODQsMS4wNDY2NCAtMi4yNDY3MiwxLjcwMzc4IC0wLjY3Mzg4LDAuNjU3MTQgLTEuMjMwNDksMS4zODYyOSAtMS42NTY1NSwyLjA5OTE0IC0wLjQyNjA2LDAuNzEyODUgLTAuNzIxMDUsMS40MDg1NyAtMC45MzI3MSwyLjEyNzA0IC0wLjIxMTY2LDAuNzE4NDcgLTAuMzM5NjcsMS40NTg2OCAtMC40MTc2NSwyLjEyMTQyIC0wLjA3OCwwLjY2Mjc0IC0wLjEwNTc5LDEuMjQ3MTYgLTAuMDIyMiwxLjg4NzcgMC4wODM1LDAuNjQwNTUgMC4yNzgzMywxLjMzNjI0IDAuNTg0NjIsMi4xNjA0NiAwLjMwNjMsMC44MjQyMyAwLjcyMzgxLDEuNzc2MTQgMS4zMDg1MywyLjY0NzY2IDAuNTg0NzMsMC44NzE1MiAxLjMzNjMyLDEuNjYyMDkgMi4yMTMzNiwyLjI5MTMyIDAuODc3MDUsMC42MjkyMyAxLjg3OTMsMS4wOTY5NSAyLjczMTIxLDEuNDI1NDUgMC44NTE5MiwwLjMyODUgMS41NTM1OCwwLjUxNzg0IDIuMzQ5NzYsMC41NjUxNCAwLjc5NjE5LDAuMDQ3MyAxLjY4NzMxLC0wLjA0NzQgMi41MTQwNSwtMC4zMzk3IDAuODI2NzUsLTAuMjkyMzMgMS41ODk4NCwtMC43ODI0OSAyLjMyNzQ2LC0xLjMyNTI4IDAuNzM3NjIsLTAuNTQyOCAxLjQ1MDYzLC0xLjEzODgzIDEuODQ1ODcsLTEuNTQyNTEgMC4zOTUyMywtMC40MDM2OSAwLjQ3MzIxLC0wLjYxNTM1IDAuNDkyODIsLTAuODEzODggMC4wMTk2LC0wLjE5ODUyIC0wLjAxOTEsLTAuMzg0NjYgLTAuMjMxMDgsLTAuNjU4NCAtMC4yMTIsLTAuMjczNzMgLTAuNTk4MjcsLTAuNjM2MzUgLTAuODk5NCwtMC44NTQ4NSAtMC4zMDExNCwtMC4yMTg1IC0wLjUxNzY3LC0wLjI5MzMxIC0wLjQ5MDA0LC0wLjQ1MDk0IDAuMDI3NiwtMC4xNTc2NCAwLjI5OTM5LC0wLjM5Nzg4IDAuNjk0OSwtMC40MjMzMSAwLjM5NTUsLTAuMDI1NCAwLjkxNTM4LDAuMTYzNjIgMS4zNTIyOSwwLjQ0MzA4IDAuNDM2OSwwLjI3OTQ2IDAuNzkxMzYsMC42NDk2NyAxLjAyNzU3LDAuOTgwMzMgMC4yMzYyMSwwLjMzMDY3IDAuMzU0MzMsMC42MjIwMiAwLjM4OTgsMC45NTY3IDAuMDM1NSwwLjMzNDY3IC0wLjAxMTgsMC43MTI0NyAtMC4xNTM1MiwxLjEyNjA0IC0wLjE0MTc3LDAuNDEzNTggLTAuMzc3ODMsMC44NjIwOCAtMC45NTI5MiwxLjQyNTM5IC0wLjU3NTEsMC41NjMzMiAtMS40ODc4OSwxLjI0MDA1IC0yLjQ4NDE4LDEuODA3MTMgLTAuOTk2MjksMC41NjcwOCAtMi4wNzQ3NCwxLjAyMzY1IC0zLjIyNDYyLDEuMzExMTQgLTEuMTQ5ODgsMC4yODc0OSAtMi4zNzAwNywwLjQwNTU4IC0zLjU1OTI4LDAuMzgxOTYgLTEuMTg5MjIsLTAuMDIzNiAtMi4zNDY1LC0wLjE4ODkzIC0zLjM5ODU4LC0wLjQ5MDYzIC0xLjA1MjA5LC0wLjMwMTcgLTIuMDExMjEsLTAuNzQ1NTkgLTIuOTY4MDYsLTEuMzM2MjQgLTAuOTU2ODUsLTAuNTkwNjQgLTEuOTE3NDIsLTEuMzMwNzUgLTIuNzI0NjEsLTIuMTk3MDIgLTAuODA3MTksLTAuODY2MjYgLTEuNDYwNzUsLTEuODU4NDEgLTEuOTQ1MDIsLTIuOTI5MzYgLTAuNDg0MjgsLTEuMDcwOTYgLTAuNzk5MjgsLTIuMjIwNzEgLTAuOTgwMzcsLTMuMzE5MTYgLTAuMTgxMDksLTEuMDk4NDUgLTAuMjI4MzQsLTIuMTQ1OTIgLTAuMTA2MjcsLTMuMTc3MzggMC4xMjIwNywtMS4wMzE0NyAwLjQxMzUsLTIuMDQ3NTMgMC43OTE0NCwtMy4wMDQxNCAwLjM3Nzk0LC0wLjk1NjYxIDAuODQyNjgsLTEuODU0NTkgMS40Njg2MSwtMi43MzI0MiAwLjYyNTkyLC0wLjg3Nzg0IDEuNDEzNjUsLTEuNzM2NDYgMi4yNzk3MiwtMi40NjA3OCAwLjg2NjA3LC0wLjcyNDMyIDEuODExMzIsLTEuMzE1MSAyLjc2Mzk4LC0xLjc1NTk3IDAuOTUyNjYsLTAuNDQwODggMS45MTM2NiwtMC43MzIzMyAyLjg1NDQ5LC0wLjkwNTUyIDAuOTQwODQsLTAuMTczMTkgMS44NjI0NywtMC4yMjgzMyAyLjc0ODE5LC0wLjIwMDc2IDAuODg1NzIsMC4wMjc2IDEuNzM2NDIsMC4xMzc4NCAyLjU3NDksMC4zNTgyOSAwLjgzODQ4LDAuMjIwNDUgMS42NjU1MywwLjU1MTI3IDIuMzc4MDgsMC45NDg4OSAwLjcxMjU0LDAuMzk3NjEgMS4zMTExLDAuODYyMjkgMS44ODU5MiwxLjMyMjkzIDAuNTc0ODEsMC40NjA2NCAxLjEyNjA2LDAuOTE3MzkgMS40OTIyMiwxLjIyMDU1IDAuMzY2MTYsMC4zMDMxNiAwLjU0NzI4LDAuNDUyNzkgMC42NDE3NCwwLjU1MTEgMC4wOTQ1LDAuMDk4MyAwLjEwMjMyLDAuMTQ1NTMgLTAuMzc2MTIsMC42NTk1OCAtMC40Nzg0NCwwLjUxNDA1IC0xLjQzNDc3LDEuNDg2MDUgLTEuOTYyMzgsMS45ODIyNSAtMC41Mjc2MSwwLjQ5NjIxIC0wLjYyMjAzLDAuNTExOTMgLTAuNjkzMTQsMC40OTIxNiAtMC4wNzExLC0wLjAxOTggLTAuMTE4MTksLTAuMDc0NyAtMC4xNDMzMiwtMC4xMjEwNSAtMC4wMjUxLC0wLjA0NjQgLTAuMDI4MSwtMC4wODM3IC0wLjAyOTYsLTAuMTAyMjcgLTAuMDAxLC0wLjAxODYgLTAuMDAxLC0wLjAxODYgMC4wNjAzLC0wLjIyMTk2IHoiIGlkPSJwYXRoODI2Ij48L3BhdGg+IDxwYXRoIGlkPSJwYXRoODQ0IiBkPSJtIDIwMy4wMjEzNSwyNTUuNDE0MzggYyAtMC4wODY1LC0wLjAwNCAtMC4yNTk3MiwtMC4wMTE4IC0wLjU3ODk5LC0wLjE4NTE5IC0wLjMxOTI4LC0wLjE3MzQgLTAuNzgzMTMsLTAuNTExNDYgLTEuMjc5NDMsLTEuMDIzNDkgLTAuNDk2MywtMC41MTIwMiAtMS4wMjM1NSwtMS4xOTY2NyAtMS40NTY3MSwtMS43MjgyOSAtMC40MzMxNiwtMC41MzE2MiAtMC43NzE2MiwtMC45MDk0MiAtMS4yNzU4LC0xLjIzMjQ1IC0wLjUwNDE4LC0wLjMyMzAzIC0xLjE3MzAxLC0wLjU5MDU3IC0xLjczMjI0LC0wLjcyNDUgLTAuNTU5MjMsLTAuMTMzOTMgLTEuMDA3ODYsLTAuMTMzOTMgLTEuNDIxNDUsLTAuMDU5MSAtMC40MTM1OSwwLjA3NDggLTAuNzkxMjIsMC4yMjQzIC0xLjExODE2LDAuMzkzNjcgLTAuMzI2OTMsMC4xNjkzNiAtMC42MDI0LDAuMzU4MjUgLTAuODUwNTEsMC41NTUxNiAtMC4yNDgxMiwwLjE5NjkxIC0wLjQ2ODU2LDAuNDAxNjIgLTAuNTk0NTksMC41MzE1OSAtMC4xMjYwMiwwLjEyOTk3IC0wLjE1NzUxLDAuMTg1MDkgLTAuMzUwMTYsMC40NjAzIC0wLjE5MjY1LDAuMjc1MjEgLTAuNTQ3NTUsMC43NzIwOCAtMC45Njg3OSwxLjIzNjYyIC0wLjQyMTI0LDAuNDY0NTQgLTAuOTA5NTEsMC44OTc2OCAtMS4yODM1MSwxLjE4MTE0IC0wLjM3NCwwLjI4MzQ3IC0wLjYzMzg1LDAuNDE3MzMgLTAuODIyODIsMC41MDM5NiAtMC4xODg5OCwwLjA4NjYgLTAuMzA3MDYsMC4xMjU5OCAtMC40NDA5OCwwLjE0MTc2IC0wLjEzMzkyLDAuMDE1OCAtMC4yODMzMiwwLjAwOCAtMC40NzI1MSwtMC4wOTA2IC0wLjE4OTIsLTAuMDk4NSAtMC40MTcxMywtMC4yODcxMiAtMC43Mjg0MywtMC41NjY4OSAtMC4zMTEyOSwtMC4yNzk3NyAtMC43MDQ1MiwtMC42NDk0MSAtMS4wOTgzOSwtMS4wMzkzMyAtMC4zOTM4NywtMC4zODk5MyAtMC43ODczMiwtMC43OTkxMiAtMS4yMTY2MywtMS4yMTI2OCAtMC40MjkzMSwtMC40MTM1NiAtMC44OTM1OSwtMC44MzA2MyAtMS4zOTk0MiwtMS4xNTQwOSAtMC41MDU4MywtMC4zMjM0NiAtMS4wNTE4NiwtMC41NTI0NyAtMS42OTU4NCwtMC42NjcyNyAtMC42NDM5OCwtMC4xMTQ4MSAtMS4zODMzOCwtMC4xMTQ4MSAtMi4xNTM3MSwwLjA0NzEgLTAuNzcwMzMsMC4xNjE5NCAtMS41Njk4MSwwLjQ4NTYzIC0xLjk3NzY2LDAuNjU5NDEgLTAuNDA3ODUsMC4xNzM3OSAtMC40MjM1NiwwLjE5NzM5IC0wLjQ5ODE3LDAuMjcyMDEgLTAuMDc0NiwwLjA3NDYgLTAuMjA4ODIsMC4yMDA5NCAtMC4zMDcyNywwLjMwMzMxIC0wLjA5ODUsMC4xMDIzNyAtMC4xNjE0MiwwLjE4MTA0IC0wLjIyMDUzLDAuMjYzNzcgLTAuMDU5MSwwLjA4MjcgLTAuMTE0MiwwLjE2OTMyIC0wLjIzNzgyLDAuMzQ1NTEgLTAuMTIzNjMsMC4xNzYxOSAtMC4zMTUyNCwwLjQ0MTIzIC0wLjMyNDg1LDAuNjg4MzYgLTAuMDEsMC4yNDcxNCAwLjE2MzQ2LDAuNDc0MjQgMC4yODIxMiwwLjYzMDY2IDAuMTE4NjUsMC4xNTY0MSAwLjE4Mjk4LDAuMjQyMjYgMC4yODI4MywwLjM1ODU4IDAuMDk5OSwwLjExNjMxIDAuMjM1MjEsMC4yNjMwNiAwLjM3MzkxLDAuMjU2OTQgMC4xMzg3LC0wLjAwNiAwLjI4MTA0LC0wLjE2NDg3IDAuNDM0NzIsLTAuMzg5NzEgMC4xNTM2OCwtMC4yMjQ4NSAwLjMxOTEyLC0wLjUxNjM0IDAuNDUyOTYsLTAuNzQ0NjQgMC4xMzM4MywtMC4yMjgzIDAuMjM2MTksLTAuMzkzNjYgMC40NjA2NCwtMC42NDE3NSAwLjIyNDQ1LC0wLjI0ODA5IDAuNTcwODcsLTAuNTc4NzYgMC44Mzg2NSwtMC44MTg5NyAwLjI2Nzc4LC0wLjI0MDIyIDAuNDU2NjcsLTAuMzg5NzUgMC42NjU0MywtMC41MTk3MyAwLjIwODc2LC0wLjEyOTk5IDAuNDM2NzEsLTAuMjQwMDMgMC42MTQxNSwtMC4zMDMxMSAwLjE3NzQ1LC0wLjA2MzEgMC4zMDMyMywtMC4wNzg4IDAuNDYwODYsLTAuMDQ3MiAwLjE1NzY0LDAuMDMxNiAwLjM0NjQ2LDAuMTEwMjUgMC42MTAzMywwLjI4MzU3IDAuMjYzODcsMC4xNzMzMyAwLjYwMjI3LDAuNDQwOSAwLjk3NjM4LDAuODA3MTcgMC4zNzQxMiwwLjM2NjI3IDAuNzgzNCwwLjgzMDY1IDEuMjgzNTUsMS4zMTg5NiAwLjUwMDE1LDAuNDg4MzEgMS4wOTAzNSwwLjk5OTgyIDEuNjMzOSwxLjM5NzYyIDAuNTQzNTUsMC4zOTc3OSAxLjAzOTIxLDAuNjgxMDIgMS40NjA3MSwwLjg1NDMyIDAuNDIxNDksMC4xNzMzIDAuNzY3NjgsMC4yMzYyNSAxLjA5ODUzLDAuMjY3NzQgMC4zMzA4NiwwLjAzMTUgMC42NDU3MSwwLjAzMTUgMS4wMzE1OCwtMC4wMjc2IDAuMzg1ODgsLTAuMDU5MSAwLjg0MjM3LC0wLjE3NzE0IDEuMjAwNzUsLTAuMjkxMzUgMC4zNTgzOCwtMC4xMTQyMiAwLjYxODIzLC0wLjIyNDQ2IDAuOTYwNzEsLTAuNDkyMTcgMC4zNDI0NywtMC4yNjc3IDAuNzY3NzIsLTAuNjkyOTUgMS4yNDQxLC0xLjI0MDIgMC40NzYzOSwtMC41NDcyNSAxLjAwMzk5LC0xLjIxNjU5IDEuNDQxMDMsLTEuNzI4NDUgMC40MzcwNCwtMC41MTE4NSAwLjc4MzA3LC0wLjg2NTc0IDEuMDIzNTUsLTEuMDYyODYgMC4yNDA0OSwtMC4xOTcxMiAwLjM3NDEzLC0wLjIzNjQyIDAuNTI3ODYsLTAuMjQ0MjggMC4xNTM3MywtMC4wMDggMC4zMjY4NSwwLjAxNTggMC41NzQ5MSwwLjI0ODIgMC4yNDgwNywwLjIzMjQ0IDAuNTcwODIsMC42NzMyNiAxLjA5NDU0LDEuMzExMTYgMC41MjM3MiwwLjYzNzkgMS4yNDc1OSwxLjQ3MTkyIDEuNzk1MTksMi4wMjM0NCAwLjU0NzYsMC41NTE1MiAwLjkxNzQ5LDAuODE5MSAxLjM3NDMyLDEuMDEyMDMgMC40NTY4MywwLjE5MjkzIDAuOTk5NzksMC4zMTA5NyAxLjQ2NDU2LDAuMzczOTcgMC40NjQ3NiwwLjA2MyAwLjg1MDI0LDAuMDcwOSAxLjA4MjYzLDAuMDUxMiAwLjIzMjM5LC0wLjAxOTcgMC4zMTE0MiwtMC4wNjcxIDAuMzA3NDgsLTAuMTE0MTcgLTAuMDA0LC0wLjA0NyAtMC4wOTA5LC0wLjA5NDQgLTAuMTM0MiwtMC4xMTgwOSAtMC4wNDMzLC0wLjAyMzYgLTAuMzI2ODIsLTAuMzA3MTIgLTAuMzI2ODIsLTAuMzA3MTIgMCwwIDAsLTRlLTUgLTAuMDg2NSwtMC4wMDQgeiIgc3R5bGU9ImRpc3BsYXk6aW5saW5lO2ZpbGw6dXJsKCNsaW5lYXJHcmFkaWVudDExODYpO2ZpbGwtb3BhY2l0eToxO3N0cm9rZTpub25lO3N0cm9rZS13aWR0aDowLjI2NDU4MzMycHg7c3Ryb2tlLWxpbmVjYXA6YnV0dDtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW9wYWNpdHk6MSI+PC9wYXRoPiA8cGF0aCBzdHlsZT0iZGlzcGxheTppbmxpbmU7ZmlsbDp1cmwoI2xpbmVhckdyYWRpZW50MTE4OCk7ZmlsbC1vcGFjaXR5OjE7c3Ryb2tlOm5vbmU7c3Ryb2tlLXdpZHRoOjAuMjY0NTgzMzJweDtzdHJva2UtbGluZWNhcDpidXR0O3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2Utb3BhY2l0eToxIiBkPSJtIDIwMi45MjExMiwyNTEuMDg2MTMgYyAtMC4wODY1LDAuMDA0IC0wLjI1OTcyLDAuMDExOCAtMC41Nzg5OSwwLjE4NTE5IC0wLjMxOTI4LDAuMTczNCAtMC43ODMxMywwLjUxMTQ2IC0xLjI3OTQzLDEuMDIzNDkgLTAuNDk2MywwLjUxMjAyIC0xLjAyMzU1LDEuMTk2NjcgLTEuNDU2NzEsMS43MjgyOSAtMC40MzMxNiwwLjUzMTYyIC0wLjc3MTYyLDAuOTA5NDIgLTEuMjc1OCwxLjIzMjQ1IC0wLjUwNDE4LDAuMzIzMDMgLTEuMTczMDEsMC41OTA1NyAtMS43MzIyNCwwLjcyNDUgLTAuNTU5MjMsMC4xMzM5MyAtMS4wMDc4NiwwLjEzMzkzIC0xLjQyMTQ1LDAuMDU5MSAtMC40MTM1OSwtMC4wNzQ4IC0wLjc5MTIyLC0wLjIyNDMgLTEuMTE4MTYsLTAuMzkzNjcgLTAuMzI2OTMsLTAuMTY5MzYgLTAuNjAyNCwtMC4zNTgyNSAtMC44NTA1MSwtMC41NTUxNiAtMC4yNDgxMiwtMC4xOTY5MSAtMC40Njg1NiwtMC40MDE2MiAtMC41OTQ1OSwtMC41MzE1OSAtMC4xMjYwMiwtMC4xMjk5NyAtMC4xNTc1MSwtMC4xODUwOSAtMC4zNTAxNiwtMC40NjAzIC0wLjE5MjY1LC0wLjI3NTIxIC0wLjU0NzU1LC0wLjc3MjA4IC0wLjk2ODc5LC0xLjIzNjYyIC0wLjQyMTI0LC0wLjQ2NDU0IC0wLjkwOTUxLC0wLjg5NzY4IC0xLjI4MzUxLC0xLjE4MTE0IC0wLjM3NCwtMC4yODM0NyAtMC42MzM4NSwtMC40MTczMyAtMC44MjI4MiwtMC41MDM5NiAtMC4xODg5OCwtMC4wODY2IC0wLjMwNzA2LC0wLjEyNTk4IC0wLjQ0MDk4LC0wLjE0MTc2IC0wLjEzMzkyLC0wLjAxNTggLTAuMjgzMzIsLTAuMDA4IC0wLjQ3MjUxLDAuMDkwNiAtMC4xODkyLDAuMDk4NSAtMC40MTcxMywwLjI4NzEyIC0wLjcyODQzLDAuNTY2ODkgLTAuMzExMjksMC4yNzk3NyAtMC43MDQ1MiwwLjY0OTQxIC0xLjA5ODM5LDEuMDM5MzMgLTAuMzkzODcsMC4zODk5MyAtMC43ODczMiwwLjc5OTEyIC0xLjIxNjYzLDEuMjEyNjggLTAuNDI5MzEsMC40MTM1NiAtMC44OTM1OSwwLjgzMDYzIC0xLjM5OTQyLDEuMTU0MDkgLTAuNTA1ODMsMC4zMjM0NiAtMS4wNTE4NiwwLjU1MjQ3IC0xLjY5NTg0LDAuNjY3MjcgLTAuNjQzOTgsMC4xMTQ4MSAtMS4zODMzOCwwLjExNDgxIC0yLjE1MzcxLC0wLjA0NzEgLTAuNzcwMzMsLTAuMTYxOTQgLTEuNTY5ODEsLTAuNDg1NjMgLTEuOTc3NjYsLTAuNjU5NDEgLTAuNDA3ODUsLTAuMTczNzkgLTAuNDIzNTYsLTAuMTk3MzkgLTAuNDk4MTcsLTAuMjcyMDEgLTAuMDc0NiwtMC4wNzQ2IC0wLjIwODgyLC0wLjIwMDk0IC0wLjMwNzI3LC0wLjMwMzMxIC0wLjA5ODQsLTAuMTAyMzcgLTAuMTYxNDIsLTAuMTgxMDQgLTAuMjIwNTMsLTAuMjYzNzcgLTAuMDU5MSwtMC4wODI3IC0wLjExNDIsLTAuMTY5MzIgLTAuMjU1OTMsLTAuMzYyMjMgLTAuMTQxNzQsLTAuMTkyOTIgLTAuMzcsLTAuNDkyMDIgLTAuNTQzMzEsLTAuNzU5ODUgLTAuMTczMywtMC4yNjc4MyAtMC4yOTE0MiwtMC41MDQwNyAtMC40NTY3NSwtMC43Mjg0NCAtMC4xNjUzNCwtMC4yMjQzNyAtMC4zNzgsLTAuNDM3MDMgLTAuNjYxNDIsLTAuNjQ5NTkgLTAuMjgzNDIsLTAuMjEyNTcgLTAuNjM4MjEsLTAuNDI1NDQgLTAuOTE3NDQsLTAuNTM1NTcgLTAuMjc5MjQsLTAuMTEwMTMgLTAuNDgzOTcsLTAuMTE3OTkgLTEuMjg1OTUsMC4yMjEzOSAtMC44MDE5OCwwLjMzOTM5IC0yLjIwMTE3LDEuMDI2MTQgLTMuMjQ5MjQsMS41MzYzIC0xLjA0ODA4LDAuNTEwMTYgLTEuNzQ1NzEsMC44NDQwMyAtMi4wOTQwNywwLjkzNjQ1IC0wLjM0ODM1LDAuMDkyNCAtMC4zNDg2OSwtMC4wNTU5IC0wLjE3NzIsLTAuMzIzOCAwLjE3MTQ5LC0wLjI2Nzg3IDAuNTEzNzYsLTAuNjU0MTYgMC43OTY2MSwtMS4wNTA4MSAwLjI4Mjg2LC0wLjM5NjY1IDAuNTA1NzQsLTAuODAyNzMgMS4xNDgxLC0xLjE2MDQ4IDAuNjQyMzUsLTAuMzU3NzYgMS42OTk4NywtMC42NjU0MiAyLjU2MDY4LC0wLjgzMDg5IDAuODYwODIsLTAuMTY1NDcgMS41MTk1MywtMC4xODc3IDIuMTQ0NzgsLTAuMTU5NDUgMC42MjUyNCwwLjAyODIgMS4yMTU2LDAuMTA2OTcgMS42NzYzMywwLjIxNzI0IDAuNDYwNzIsMC4xMTAyNyAwLjc5MTQ4LDAuMjUyMDMgMS4xMjIxMiwwLjUzOTM5IDAuMzMwNjMsMC4yODczNyAwLjY2MTQ2LDAuNzIwNTkgMC45MDk0NSwxLjA4MjczIDAuMjQ3OTgsMC4zNjIxNCAwLjQxMzQyLDAuNjUzNjMgMC41NDcyNiwwLjg4MTkzIDAuMTMzODMsMC4yMjgzIDAuMjM2MTksMC4zOTM2NiAwLjQ2MDY0LDAuNjQxNzUgMC4yMjQ0NSwwLjI0ODA5IDAuNTcwODcsMC41Nzg3NiAwLjgzODY1LDAuODE4OTcgMC4yNjc3OCwwLjI0MDIyIDAuNDU2NjcsMC4zODk3NSAwLjY2NTQzLDAuNTE5NzMgMC4yMDg3NiwwLjEyOTk5IDAuNDM2NzEsMC4yNDAwMyAwLjYxNDE1LDAuMzAzMTEgMC4xNzc0NSwwLjA2MzEgMC4zMDMyMywwLjA3ODggMC40NjA4NiwwLjA0NzIgMC4xNTc2NCwtMC4wMzE2IDAuMzQ2NDYsLTAuMTEwMjUgMC42MTAzMywtMC4yODM1NyAwLjI2Mzg3LC0wLjE3MzMzIDAuNjAyMjcsLTAuNDQwOSAwLjk3NjM4LC0wLjgwNzE3IDAuMzc0MTIsLTAuMzY2MjcgMC43ODM0LC0wLjgzMDY1IDEuMjgzNTUsLTEuMzE4OTYgMC41MDAxNSwtMC40ODgzMSAxLjA5MDM1LC0wLjk5OTgyIDEuNjMzOSwtMS4zOTc2MiAwLjU0MzU1LC0wLjM5Nzc5IDEuMDM5MjEsLTAuNjgxMDIgMS40NjA3MSwtMC44NTQzMiAwLjQyMTQ5LC0wLjE3MzMgMC43Njc2OCwtMC4yMzYyNSAxLjA5ODUzLC0wLjI2Nzc0IDAuMzMwODYsLTAuMDMxNSAwLjY0NTcxLC0wLjAzMTUgMS4wMzE1OCwwLjAyNzYgMC4zODU4OCwwLjA1OTEgMC44NDIzNywwLjE3NzE0IDEuMjAwNzUsMC4yOTEzNSAwLjM1ODM4LDAuMTE0MjIgMC42MTgyMywwLjIyNDQ2IDAuOTYwNzEsMC40OTIxNyAwLjM0MjQ3LDAuMjY3NyAwLjc2NzcyLDAuNjkyOTUgMS4yNDQxLDEuMjQwMiAwLjQ3NjM5LDAuNTQ3MjUgMS4wMDM5OSwxLjIxNjU5IDEuNDQxMDMsMS43Mjg0NSAwLjQzNzA0LDAuNTExODUgMC43ODMwNywwLjg2NTc0IDEuMDIzNTUsMS4wNjI4NiAwLjI0MDQ5LDAuMTk3MTIgMC4zNzQxMywwLjIzNjQyIDAuNTI3ODYsMC4yNDQyOCAwLjE1MzczLDAuMDA4IDAuMzI2ODUsLTAuMDE1OCAwLjU3NDkxLC0wLjI0ODIgMC4yNDgwNywtMC4yMzI0NCAwLjU3MDgyLC0wLjY3MzI2IDEuMDk0NTQsLTEuMzExMTYgMC41MjM3MiwtMC42Mzc5IDEuMjQ3NTksLTEuNDcxOTIgMS43OTUxOSwtMi4wMjM0NCAwLjU0NzYsLTAuNTUxNTIgMC45MTc0OSwtMC44MTkxIDEuMzc0MzIsLTEuMDEyMDMgMC40NTY4MywtMC4xOTI5MyAwLjk5OTc5LC0wLjMxMDk3IDEuNDY0NTYsLTAuMzczOTcgMC40NjQ3NiwtMC4wNjMgMC44NTAyNCwtMC4wNzA5IDEuMDgyNjMsLTAuMDUxMiAwLjIzMjM5LDAuMDE5NyAwLjMxMTQyLDAuMDY3MSAwLjMwNzQ4LDAuMTE0MTcgLTAuMDA0LDAuMDQ3MSAtMC4wOTA5LDAuMDk0NCAtMC4xMzQyLDAuMTE4MDkgLTAuMDQzMywwLjAyMzYgLTAuMzI2ODIsMC4zMDcxMiAtMC4zMjY4MiwwLjMwNzEyIDAsMCAtMS41ZS00LDJlLTUgLTAuMDg2NiwwLjAwNCB6IiBpZD0icGF0aDgzMCI+PC9wYXRoPiA8cGF0aCBzdHlsZT0iZGlzcGxheTppbmxpbmU7ZmlsbDp1cmwoI2xpbmVhckdyYWRpZW50MTE5MCk7ZmlsbC1vcGFjaXR5OjE7c3Ryb2tlOm5vbmU7c3Ryb2tlLXdpZHRoOjAuMjY0NTgzMzJweDtzdHJva2UtbGluZWNhcDpidXR0O3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2Utb3BhY2l0eToxIiBkPSJtIDE2Ni41MDI5LDIzNy4wMzcxNyBjIC0wLjIwNzc2LDAuMDAzIC0wLjQ1NDA1LDAuMDEyNyAtMC43MjE0LDAuMDM3NyAtMC41MzQ2OSwwLjA1MDEgLTEuMTUyMjIsMC4xNjEyOSAtMS43MDYzNiwwLjMyNTU2IC0wLjU1NDEzLDAuMTY0MjcgLTEuMDQ0MjcsMC4zODE0NyAtMS41Njc4NiwwLjY4NzgxIC0wLjUyMzU5LDAuMzA2MzQgLTEuMDc5NjMsMC43MDE0NyAtMS42NTA1NSwxLjIxMzg4IC0wLjU3MDkxLDAuNTEyNDEgLTEuMTU1NTMsMS4xNDA5MSAtMS42MzQ1MiwxLjgyMzE1IC0wLjQ3ODk5LDAuNjgyMjMgLTAuODUyMDMsMS40MTY5NyAtMS4wOTcwOSwxLjk5MDU3IC0wLjI0NTA2LDAuNTczNiAtMC4zNjE4MiwwLjk4NTgxIC0wLjQ2NzY3LDEuNTA5NDcgLTAuMTA1ODUsMC41MjM2NiAtMC4yMDA1NSwxLjE1NzYzIC0wLjIyODQxLDEuODAwOTIgLTAuMDI3OSwwLjY0MzMgMC4wMTExLDEuMjk0NzcgMC4xMjI0NywxLjk3MTQ2IDAuMTExMzgsMC42NzY2OSAwLjI5NTA3LDEuMzc3NzUgMC41ODE4OCwyLjEyOTU5IDAuMjg2OCwwLjc1MTgzIDAuNjc2NTcsMS41NTMzNCAxLjEwNTM2LDIuMjM1NTIgMC40Mjg3OSwwLjY4MjE3IDAuODk2NDgsMS4yNDQ5IDEuNDAwNDMsMS43NTQ0MSAwLjUwMzk1LDAuNTA5NTIgMS4wNDM4NiwwLjk2NTk1IDEuNTg5NTYsMS4zMzA2NyAwLjU0NTcxLDAuMzY0NzMgMS4wOTcxOSwwLjYzNzU1IDEuNzQzMDUsMC44NzY5NSAwLjY0NTg2LDAuMjM5NCAxLjM4NjM0LDAuNDQ1NjQgMS45ODQ4OSwwLjU2NTM0IDAuNTk4NTYsMC4xMTk3IDEuMDU1NDEsMC4xNTI2NiAxLjQyMDA3LDAuMTQ5ODYgMC4zNjQ2NiwtMC4wMDMgMC42Mzc4MywtMC4wNDE0IDAuODE1OTcsLTAuMDY5MiAwLjE3ODE1LC0wLjAyNzggMC4yNjE2NSwtMC4wNDQ3IDAuMzE3MywtMC4wNTU4IDAuMDU1NiwtMC4wMTExIDAuMDgzNiwtMC4wMTY5IDAuMzc1NjgsLTAuMTUxOTMgMC4wNDA4LC0wLjAxODkgMC4wODgyLC0wLjA0MjcgMC4xMzkwMSwtMC4wNzI5IC0wLjA1ODUsLTAuMDAyIC0wLjExNzYxLC0wLjAwMyAtMC4xNzUxOCwtMC4wMDYgLTAuNzk2MTgsLTAuMDQ3MyAtMS40OTc4MiwtMC4yMzY4MyAtMi4zNDk3MywtMC41NjUzNCAtMC44NTE5MSwtMC4zMjg0OSAtMS44NTQwNSwtMC43OTU5OSAtMi43MzExLC0xLjQyNTIzIC0wLjg3NzA0LC0wLjYyOTIzIC0xLjYyODU3LC0xLjQxOTgxIC0yLjIxMzMsLTIuMjkxMzMgLTAuNTg0NzMsLTAuODcxNTIgLTEuMDAyMTUsLTEuODIzNjcgLTEuMzA4NDUsLTIuNjQ3OSAtMC4zMDYyOSwtMC44MjQyMyAtMC41MDE0MywtMS41MTk1MyAtMC41ODQ5NywtMi4xNjAwNyAtMC4wODM1LC0wLjY0MDU1IC0wLjA1NTgsLTEuMjI1MDEgMC4wMjIyLC0xLjg4Nzc1IDAuMDc4LC0wLjY2MjczIDAuMjA1ODksLTEuNDAzMzYgMC40MTc1NSwtMi4xMjE4MyAwLjIxMTY2LC0wLjcxODQ3IDAuNTA2NjksLTEuNDE0MTYgMC45MzI3NiwtMi4xMjcgMC40MjYwNiwtMC43MTI4NSAwLjk4Mjg2LC0xLjQ0MTk2IDEuNjU2NzQsLTIuMDk5MSAwLjY3Mzg5LC0wLjY1NzEzIDEuNDY0NCwtMS4yNDE1NCAyLjI0NjksLTEuNzAzNzcgMC43NjcxNywtMC40NTMxOCAxLjUyNTY3LC0wLjc4Njg1IDIuMjg0NjEsLTEuMDEyMzQgLTAuMDY4NSwwLjAwMyAtMC4xMjMwNCwwLjAwMiAtMC4yMjk5NiwtMC4wMDEgLTAuMTEyNjksLTAuMDAzIC0wLjI4MjEzLC0wLjAwNyAtMC40ODk4OSwtMC4wMDQgeiIgaWQ9InBhdGg4MjYtMSI+PC9wYXRoPiA8cGF0aCBkPSJtIDIwMC4xNDU0OCwyNDQuMDg5NTcgYyAtMC45NzY1NywwLjIzMTEgLTEuMjgyNDMsMS4xNTE5NSAtMS4yMzcxMywxLjk4MjgyIGwgLTAuMDE0OSwyLjU3MTUzIC0wLjQxMDM2LC02LjNlLTQgdiAxLjAwMzA0IGggNS4zOTU1NCBsIC0wLjAwMiwtMC45OTQ3NyAtMC41OTMyNCwtMC4wMDggMC4wMTc2LC0zLjgwODA0IGMgLTAuMDYyMywtMC4yNjQxMSAtMC4yNDI1NCwtMC42MzggLTAuNTQ5ODQsLTAuNzQ2MiB6IG0gMS4yMDQwNiwxLjAyMTc3IGMgMC4yNDEyMSwwLjAwNCAwLjQ1NDI0LDAuMDE2NSAwLjQ1NDI0LDAuMDE2NSAwLjA4MDcsMC4wMzQgMC4xNjI1NSwwLjA3ODYgMC4yNTQyNSwwLjIyMjIgdiAzLjI4NDk1IGggLTEuOTYyNjcgYyAwLDAgLTAuMDA5LC0yLjA5Mzc0IDAuMDA0LC0yLjQ5NjM0IDAuMDA3LC0wLjIxMTE4IDAuMDMzNSwtMC40NjMxOCAwLjE2OTIyLC0wLjY4NDQgMC4xMjMwMywtMC4yMDA1MiAwLjM1MDU3LC0wLjI3OTI0IDAuNDU3NjIsLTAuMzEwNCAwLjExMjU2LC0wLjAzMjcgMC4zODIwMSwtMC4wMzY4IDAuNjIzMjIsLTAuMDMyNSB6IG0gLTMxLjE5ODY4LDQuMzU2NDcgaCAzLjk3MTEzIFYgMjQ4LjM3MSBoIC0yLjYwMDk2IHYgLTAuOTgwMzggaCAyLjI5MzAyIHYgLTEuMTgxMTggaCAtMi4yOTMwMiB2IC0wLjg5NzY4IGggMi42NjAwMiB2IC0xLjE2OTM4IGwgLTQuMDMwNzcsLTAuMDA0IHogbSAyMy40MzQ1MiwwIGggMy45NzExMyBWIDI0OC4zNzEgaCAtMi42MDA5NiB2IC0wLjk4MDM4IGggMi4yOTMwMiB2IC0xLjE4MTE4IGggLTIuMjkzMDIgdiAtMC44OTc2OCBoIDIuNjYwMDIgdiAtMS4xNjkzOCBsIC00LjAzMDc3LC0wLjAwNCB6IG0gLTEuMTM3ODcsMC4xNjEzNiBoIC0xLjMxOTcgdiAtMy4zOTgyIGwgLTAuOTc3MzgsMy4yNzI2IGggLTAuOTA0NjMgbCAtMC45NDUzOSwtMy4yNzI2IHYgMy4zOTgyIGggLTEuMjQ4NzUgdiAtNS41ODk4NyBoIDEuODA0NjIgbCAwLjg5NTA4LDMuNDc5ODggMC45MjQ5NCwtMy40NzE1MyAxLjc3MTIxLC0wLjAwOCB6IG0gLTguOTk5MiwtNS42Mjg0OSBjIC0xLjQ1NDczLDRlLTUgLTIuNjMzOTksMS4yNjM5OCAtMi42MzM5NSwyLjgyMzA5IC00ZS01LDEuNTU5MSAxLjE3OTIyLDIuODIzMDQgMi42MzM5NSwyLjgyMzA4IDEuNDU0NzMsLTRlLTUgMi42MzM5OSwtMS4yNjM5OCAyLjYzMzk1LC0yLjgyMzA4IDRlLTUsLTEuNTU5MTEgLTEuMTc5MjIsLTIuODIzMDUgLTIuNjMzOTUsLTIuODIzMDkgeiBtIDAsMS4yMDQ1OCBjIDAuNzgyOTQsLTVlLTUgMS40MTc2MiwwLjc2MTY2IDEuNDE3NDgsMS43MDExOSAtMWUtNCwwLjkzOTMyIC0wLjYzNDcxLDEuNzAwNzIgLTEuNDE3NDgsMS43MDA2NyAtMC43ODI3Nyw1ZS01IC0xLjQxNzM4LC0wLjc2MTM1IC0xLjQxNzQ4LC0xLjcwMDY3IC0xLjRlLTQsLTAuOTM5NTMgMC42MzQ1NCwtMS43MDEyNCAxLjQxNzQ4LC0xLjcwMTE5IHogbSAtOC4wODM3MSwtMS4wNzQ2OCB2IDUuMzMxNTUgaCAxLjE1MjYgbCAtMC4wMDYsLTIuMjMxMjkgaCAyLjA1NDYzIGwgMC4wMDYsMi4yNDgwMSBoIDEuMDg1NzggdiAtNS4zNTg4OSBoIC0xLjE0NDI0IHYgMi4xNDMzIGggLTEuOTc5NDcgdiAtMi4xNDMzIGwgLTEuMTY5MywwLjAxMDYgeiBtIC05LjI4NzYyLDUuMzgxNjcgaCAxLjU1MzUgdiAtNi41MTQ3IGggMi40Mzg4NCB2IC0xLjUzNjc5IGggLTMuOTkyMzQgeiIgc3R5bGU9ImRpc3BsYXk6aW5saW5lO2ZpbGw6IzkzYzBkMztmaWxsLW9wYWNpdHk6MTtzdHJva2U6bm9uZTtzdHJva2Utd2lkdGg6MC4yMDQ7c3Ryb2tlLW1pdGVybGltaXQ6NDtzdHJva2UtZGFzaGFycmF5Om5vbmU7c3Ryb2tlLWRhc2hvZmZzZXQ6MDtzdHJva2Utb3BhY2l0eToxIiBpZD0icGF0aDExNjEiPjwvcGF0aD4gPHBhdGggaWQ9InJlY3QxMDQ0IiBzdHlsZT0iZGlzcGxheTppbmxpbmU7ZmlsbDp1cmwoI2xpbmVhckdyYWRpZW50MTE5Mik7ZmlsbC1vcGFjaXR5OjE7c3Ryb2tlOm5vbmU7c3Ryb2tlLXdpZHRoOjAuMjA0O3N0cm9rZS1taXRlcmxpbWl0OjQ7c3Ryb2tlLWRhc2hhcnJheTpub25lO3N0cm9rZS1kYXNob2Zmc2V0OjA7c3Ryb2tlLW9wYWNpdHk6MSIgZD0ibSAxOTkuOTA5MjQsMjQzLjgyOTcxIGMgLTAuOTc2NTcsMC4yMzExIC0xLjI4MjQzLDEuMTUxOTUgLTEuMjM3MTMsMS45ODI4MiBsIC0wLjAxNDksMi41NzE1MyAtMC40MTAzNiwtNi4zZS00IHYgMS4wMDMwNCBoIDUuMzk1NTQgbCAtMC4wMDIsLTAuOTk0NzcgLTAuNTkzMjQsLTAuMDA4IDAuMDE3NiwtMy44MDgwNCBjIC0wLjA2MjMsLTAuMjY0MTEgLTAuMjQyNTQsLTAuNjM4IC0wLjU0OTg0LC0wLjc0NjIgeiBtIDEuMjA0MDYsMS4wMjE3NyBjIDAuMjQxMjEsMC4wMDQgMC40NTQyNCwwLjAxNjUgMC40NTQyNCwwLjAxNjUgMC4wODA3LDAuMDM0IDAuMTYyNTUsMC4wNzg2IDAuMjU0MjUsMC4yMjIyIHYgMy4yODQ5NSBoIC0xLjk2MjY3IGMgMCwwIC0wLjAwOSwtMi4wOTM3NCAwLjAwNCwtMi40OTYzNCAwLjAwNywtMC4yMTExOCAwLjAzMzUsLTAuNDYzMTggMC4xNjkyMiwtMC42ODQ0IDAuMTIzMDMsLTAuMjAwNTIgMC4zNTA1NywtMC4yNzkyNCAwLjQ1NzYyLC0wLjMxMDQgMC4xMTI1NiwtMC4wMzI3IDAuMzgyMDEsLTAuMDM2OCAwLjYyMzIyLC0wLjAzMjUgeiBtIC0zMS4xOTg2OCw0LjM1NjQ3IGggMy45NzExMyB2IC0xLjA5NjgxIGggLTIuNjAwOTYgdiAtMC45ODAzOCBoIDIuMjkzMDIgdiAtMS4xODExOCBoIC0yLjI5MzAyIHYgLTAuODk3NjggaCAyLjY2MDAyIHYgLTEuMTY5MzggbCAtNC4wMzA3NywtMC4wMDQgeiBtIDIzLjQzNDUyLDAgaCAzLjk3MTEzIHYgLTEuMDk2ODEgaCAtMi42MDA5NiB2IC0wLjk4MDM4IGggMi4yOTMwMiB2IC0xLjE4MTE4IGggLTIuMjkzMDIgdiAtMC44OTc2OCBoIDIuNjYwMDIgdiAtMS4xNjkzOCBsIC00LjAzMDc3LC0wLjAwNCB6IG0gLTEuMTM3ODcsMC4xNjEzNiBoIC0xLjMxOTcgdiAtMy4zOTgyIGwgLTAuOTc3MzgsMy4yNzI2IGggLTAuOTA0NjMgbCAtMC45NDUzOSwtMy4yNzI2IHYgMy4zOTgyIGggLTEuMjQ4NzUgdiAtNS41ODk4NyBoIDEuODA0NjIgbCAwLjg5NTA4LDMuNDc5ODggMC45MjQ5NCwtMy40NzE1MyAxLjc3MTIxLC0wLjAwOCB6IG0gLTguOTk5MiwtNS42Mjg0OSBjIC0xLjQ1NDczLDRlLTUgLTIuNjMzOTksMS4yNjM5OCAtMi42MzM5NSwyLjgyMzA5IC00ZS01LDEuNTU5MSAxLjE3OTIyLDIuODIzMDQgMi42MzM5NSwyLjgyMzA4IDEuNDU0NzMsLTRlLTUgMi42MzM5OSwtMS4yNjM5OCAyLjYzMzk1LC0yLjgyMzA4IDRlLTUsLTEuNTU5MTEgLTEuMTc5MjIsLTIuODIzMDUgLTIuNjMzOTUsLTIuODIzMDkgeiBtIDAsMS4yMDQ1OCBjIDAuNzgyOTQsLTVlLTUgMS40MTc2MiwwLjc2MTY2IDEuNDE3NDgsMS43MDExOSAtMWUtNCwwLjkzOTMyIC0wLjYzNDcxLDEuNzAwNzIgLTEuNDE3NDgsMS43MDA2NyAtMC43ODI3Nyw1ZS01IC0xLjQxNzM4LC0wLjc2MTM1IC0xLjQxNzQ4LC0xLjcwMDY3IC0xLjRlLTQsLTAuOTM5NTMgMC42MzQ1NCwtMS43MDEyNCAxLjQxNzQ4LC0xLjcwMTE5IHogbSAtOC4wODM3MSwtMS4wNzQ2OCB2IDUuMzMxNTUgaCAxLjE1MjYgbCAtMC4wMDYsLTIuMjMxMjkgaCAyLjA1NDYzIGwgMC4wMDYsMi4yNDgwMSBoIDEuMDg1NzggdiAtNS4zNTg4OSBoIC0xLjE0NDI0IHYgMi4xNDMzIGggLTEuOTc5NDcgdiAtMi4xNDMzIGwgLTEuMTY5MywwLjAxMDYgeiBtIC05LjI4NzYyLDUuMzgxNjcgaCAxLjU1MzUgdiAtNi41MTQ3IGggMi40Mzg4NCB2IC0xLjUzNjc5IGggLTMuOTkyMzQgeiI+PC9wYXRoPiA8L2c+IDwvZz4gPC9zdmc+IA==';
+
+</script>
+<script>
+/* ============================================================
+   EpiPrint — построение заключения (общий модуль).
+   buildReportDoc(sample, variant) → HTML <div class="doc">…</div>.
+   variant: 'full' (по умолчанию) | 'compact' (сжатое).
+   Бланк лаборатории «Геномед» + структура результата в стиле Galleri.
+   ============================================================ */
+
+function genomedLogoSVG(){
+  return `<img src="${typeof GENOMED_LOGO!=='undefined'?GENOMED_LOGO:''}" alt="Геномед" class="gm-logo-img">`;
+}
+function miniIcon(path){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+}
+const _IC_PHONE = '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.98.36 1.93.7 2.85a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.92.34 1.87.57 2.85.7A2 2 0 0 1 22 16.92z"/>';
+const _IC_MAIL = '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>';
+const _IC_GLOBE = '<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/>';
+
+function reportSealSVG(){
+  return `<svg viewBox="0 0 200 200" fill="none">
+    <defs><path id="arcTop" d="M 22 100 A 78 78 0 0 1 178 100"/><path id="arcBot" d="M 28 100 A 72 72 0 0 0 172 100"/></defs>
+    <circle cx="100" cy="100" r="95" stroke="#12599c" stroke-width="3"/><circle cx="100" cy="100" r="88" stroke="#12599c" stroke-width="1"/><circle cx="100" cy="100" r="63" stroke="#12599c" stroke-width="1.4"/>
+    <g fill="#12599c" font-family="Montserrat, sans-serif" font-weight="700" letter-spacing="1.1">
+      <text font-size="10.2"><textPath href="#arcTop" startOffset="50%" text-anchor="middle">ООО «ГЕНОМЕД» · ЛАБОРАТОРИЯ МОЛЕКУЛЯРНОЙ ПАТОЛОГИИ</textPath></text>
+      <text font-size="11"><textPath href="#arcBot" startOffset="50%" text-anchor="middle">EpiPrint · cfDNA METHYLATION · МОСКВА</textPath></text></g>
+    <text x="20" y="105" fill="#12599c" font-size="15" text-anchor="middle">✦</text><text x="180" y="105" fill="#12599c" font-size="15" text-anchor="middle">✦</text>
+    <g transform="translate(100,72)" stroke="#12599c" stroke-width="2" stroke-linecap="round" fill="none">
+      <path d="M-9 -8 C-3 -3, 3 3, 9 8"/><path d="M9 -8 C3 -3, -3 3, -9 8"/><path d="M-7 -8 H7"/><path d="M-4 -3 H4"/><path d="M-4 3 H4"/><path d="M-7 8 H7"/></g>
+    <text x="100" y="108" fill="#12599c" font-family="Montserrat, sans-serif" font-weight="800" font-size="12" text-anchor="middle" letter-spacing="1">ОГРН</text>
+    <text x="100" y="124" fill="#12599c" font-family="monospace" font-size="10.5" text-anchor="middle" letter-spacing="1">1077763509977</text></svg>`;
+}
+
+function buildReportDoc(s, variant){
+  const compact = variant === 'compact';
+  const sc = s.score, detected = sc.cancerProb > 0.5;
+  const d = new Date(s.date+'T00:00:00');
+  const fmtD = dt=>`${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+  const collect = new Date(d); collect.setDate(d.getDate()-3);
+  const recv = new Date(d); recv.setDate(d.getDate()-2);
+  const reportNo = 'EP-'+s.id+'/'+s.run.slice(2);
+  const top2 = CANCER_TYPES.map(t=>({...t, v:sc.localization[t.key]})).sort((a,b)=>b.v-a.v).slice(0,2);
+  const detColor = detected ? (sc.risk==='high' ? '#c0392b' : '#c8820a') : '#1a8a52';
+  const riskWord = { high:'высокая', medium:'средняя', low:'низкая' }[sc.risk];
+
+  const detectionText = detected
+    ? `В образце свободно циркулирующей ДНК плазмы крови выявлен профиль метилирования, характерный для онкологического процесса. Расчётная вероятность наличия онкологического процесса — <b>${pct(sc.cancerProb)}</b>; категория риска — <b>${riskWord}</b>. Результат подлежит подтверждению методами клинического и инструментального обследования.`
+    : `В образце свободно циркулирующей ДНК плазмы крови профиль метилирования, характерный для онкологического процесса, не выявлен. Расчётная вероятность наличия онкологического процесса — <b>${pct(sc.cancerProb)}</b>; категория риска — <b>${riskWord}</b>. Отрицательный результат не исключает наличия онкологического заболевания.`;
+
+  // Интерпретация (в сжатом — с добавлением сути методики)
+  let interpText = detected
+    ? `Выявленный профиль метилирования ассоциирован с онкологическим процессом. Показано дообследование у профильного специалиста для верификации результата и установления окончательного диагноза.`
+    : `Признаки онкологического процесса в исследованном образце не обнаружены. Рекомендовано продолжение планового скринингового наблюдения в соответствии с возрастом и факторами риска пациента.`;
+  if (compact) interpText += ` Исследование выполнено методом анализа метилирования свободно циркулирующей ДНК плазмы крови (панель из ${s.heatmap.N} маркерных регионов, референсный геном GRCh38; секвенирование DNBSEQ/Illumina; контроль качества образца — ${s.qc.verdict==='Pass'?'пройден':'с замечаниями'}).`;
+
+  // Ограничения интерпретации (в сжатом — с добавлением сути ограничений метода)
+  let limitText = detected
+    ? `Результат исследования не является установленным диагнозом и не может служить единственным основанием для его постановки. Окончательная интерпретация осуществляется лечащим врачом с учётом клинической картины и данных иных методов обследования.`
+    : `Отрицательный результат не исключает наличия онкологического заболевания, в том числе локализаций, не входящих в исследуемую панель. Окончательная интерпретация осуществляется лечащим врачом с учётом клинической картины.`;
+  if (compact) limitText += ` Исследование не заменяет стандартные методы обследования; диагностическая чувствительность снижается на ранних стадиях заболевания и при низкой доле опухолевой ДНК в образце; панель охватывает ограниченный перечень локализаций.`;
+
+  // --- реквизиты образца: полный (тех.) vs сжатый (в стиле бланка Геномед) ---
+  const infoFull = `
+    <div class="rp-info">
+      <div><h4>Пациент</h4><dl>
+        <dt>Код</dt><dd>${s.patientCode}</dd>
+        <dt>Индивидуальный №</dt><dd>${s.patientNo}</dd>
+        <dt>Пол</dt><dd>${s.sex==='Ж'?'женский':'мужской'}</dd>
+        <dt>Возраст</dt><dd>${s.age} лет</dd>
+      </dl></div>
+      <div><h4>Образец и метод</h4><dl>
+        <dt>Идентификатор</dt><dd>${s.seqId}</dd>
+        <dt>Биоматериал</dt><dd>плазма крови, cfDNA</dd>
+        <dt>Метод · набор</dt><dd>${s.kit.method} · ${s.kit.label}</dd>
+        <dt>Референсный геном</dt><dd>GRCh38 (${s.ref})</dd>
+      </dl></div>
+      <div><h4>Сроки исследования</h4><dl>
+        <dt>Направитель</dt><dd style="font-family:var(--body)">${s.contractor}</dd>
+        <dt>Забор материала</dt><dd>${fmtD(collect)}</dd>
+        <dt>Поступление</dt><dd>${fmtD(recv)}</dd>
+        <dt>Готовность</dt><dd>${fmtD(d)}</dd>
+        <dt>Заключение №</dt><dd>${reportNo}</dd>
+      </dl></div>
+    </div>`;
+
+  const infoCompact = `
+    <div class="rp-gm-info">
+      <div>
+        <div class="r"><b>Номер договора:</b><span>Д-${s.id}/26</span></div>
+        <div class="r"><b>Пациент:</b><span>${s.patientCode}</span></div>
+        <div class="r"><b>Дата рождения · пол:</b><span>[дд.мм.гггг] · ${s.sex==='Ж'?'женский':'мужской'}</span></div>
+        <div class="r"><b>Вид биоматериала:</b><span>плазма крови (cfDNA)</span></div>
+        <div class="r"><b>Вид исследования:</b><span>EpiPrint — метилирование cfDNA (MCED)</span></div>
+      </div>
+      <div>
+        <div class="r"><b>Дата забора материала:</b><span>${fmtD(collect)}</span></div>
+        <div class="r"><b>Поступление в лабораторию:</b><span>${fmtD(recv)}</span></div>
+        <div class="r"><b>Дата готовности:</b><span>${fmtD(d)}</span></div>
+        <div class="r"><b>Заключение №:</b><span>${reportNo}</span></div>
+      </div>
+    </div>`;
+
+  const infoBlock = compact ? infoCompact : infoFull;
+
+  const predictionBlock = detected ? `
+    <div class="rp-sec">
+      <div class="rp-sec__tab" style="background:var(--pred)">Локализация</div>
+      <div class="rp-sec__body">
+        <div class="pred-h">Предполагаемая локализация источника сигнала</div>
+        <hr class="pred-rule">
+        <div class="pred-grid">
+          <div class="cso-card">
+            <div class="cso-card__hd">Источник сигнала</div>
+            <div class="cso-card__bd">
+              <div class="cso-label">Наиболее вероятная локализация</div>
+              <div class="cso-name">${top2[0].label}</div>
+              <div class="cso-meter"><i style="width:100%"></i></div>
+              <div class="cso-second">
+                <div class="cso-label">Альтернативная локализация</div>
+                <div class="cso-name" style="font-size:13px">${top2[1].label}</div>
+                <div class="cso-meter"><i style="width:${Math.round(top2[1].v/top2[0].v*100)}%"></i></div>
+              </div>
+            </div>
+          </div>
+          <div class="pred-expl">
+            <p>Предполагаемая локализация источника сигнала указывает ткань или орган, ассоциированные с выявленным профилем метилирования, и предназначена для определения приоритетного направления диагностического поиска.</p>
+            <p>Протяжённость индикатора отражает степень соответствия профиля метилирования опухолям указанной локализации: большей протяжённости соответствует более высокая степень соответствия. Диагностическую оценку следует начинать с наиболее вероятной локализации.</p>
+            <p class="it">Протяжённость индикатора не отражает вероятность наличия злокачественного новообразования и не заменяет топической диагностики.</p>
+          </div>
+        </div>
+      </div>
+    </div>`
+  : `
+    <div class="rp-sec">
+      <div class="rp-sec__tab" style="background:var(--pred)">Локализация</div>
+      <div class="rp-sec__body">
+        <div class="pred-h">Локализация источника сигнала</div>
+        <hr class="pred-rule">
+        <p style="font-size:9.4px;color:#6b7280;line-height:1.5;margin:0;text-align:justify">Определение локализации источника сигнала не проводится при отсутствии онкологического сигнала.</p>
+      </div>
+    </div>`;
+
+  // блок «Ограничения метода / Методика» — только в полном варианте
+  const fineBlock = compact ? '' : `
+    <div class="rp-fine">
+      <div><h6>Ограничения метода</h6><ul>
+        <li>Исследование не заменяет установленный клинический диагноз и требует подтверждения стандартными методами обследования.</li>
+        <li>Диагностическая чувствительность метода снижается на ранних стадиях заболевания и при низкой доле опухолевой ДНК в образце.</li>
+        <li>Панель охватывает ограниченный перечень локализаций; отдельные нозологические формы могут не выявляться.</li>
+      </ul></div>
+      <div><h6>Методика</h6><p>Исследование профиля метилирования свободно циркулирующей ДНК плазмы крови по панели из ${s.heatmap.N} маркерных регионов. Референсный геном — GRCh38 (${s.ref}); платформа секвенирования — DNBSEQ/Illumina. Контроль качества образца — <b>${s.qc.verdict==='Pass'?'пройден':'с замечаниями'}</b>. Оценка вероятности выполнена путём сопоставления профиля метилирования образца с референсными профилями.</p></div>
+    </div>`;
+
+  return `
+  <div class="doc" style="--det:${detColor};--pred:#463c8c">
+    <div class="gm-head">
+      <div class="gm-logo">${genomedLogoSVG()}</div>
+      <div class="gm-org">
+        <div class="gm-reg"><span>ООО «ГЕНОМЕД»</span><span>ИНН/КПП 7701759381/770101001</span><span>ОГРН 1077763509977</span></div>
+        <div class="gm-lab">ЛАБОРАТОРИЯ МОЛЕКУЛЯРНОЙ ПАТОЛОГИИ</div>
+        <div class="gm-addr">Юр. адрес: 105005, Россия, г. Москва, ул. Бауманская, д. 50/12, стр. 1</div>
+      </div>
+      <div class="gm-contacts">
+        <div>${miniIcon(_IC_PHONE)} +7 (495) 660-83-77</div>
+        <div>${miniIcon(_IC_PHONE)} +7 800-333-45-38</div>
+        <div>${miniIcon(_IC_MAIL)} callcenter@genomed.ru</div>
+        <div>${miniIcon(_IC_GLOBE)} www.genomed.ru</div>
+      </div>
+    </div>
+    <hr class="gm-rule"><hr class="gm-rule2">
+
+    <div class="rp-titleblock">
+      <div class="rp-title">ЗАКЛЮЧЕНИЕ</div>
+      <div class="rp-subtitle">по результатам исследования метилирования свободно циркулирующей ДНК · тест <b>EpiPrint</b> (ранняя диагностика онкологического процесса)</div>
+    </div>
+
+    ${infoBlock}
+
+    <div class="rp-sec">
+      <div class="rp-sec__tab" style="background:var(--det)">Выявление</div>
+      <div class="rp-sec__body">
+        <div class="resultbox">
+          <div class="resultbox__legend">Результат</div>
+          <div class="result-icon">${detected ? '!' : icon('check')}</div>
+          <div>
+            <div class="result-h">${detected ? 'Онкологический сигнал обнаружен' : 'Онкологический сигнал не обнаружен'}</div>
+            <p class="result-p">${detectionText}</p>
+          </div>
+        </div>
+        <div class="rp-two">
+          <div><h5>${icon('circle-check')} Интерпретация</h5><p>${interpText}</p></div>
+          <div><h5>${icon('alert-triangle')} Ограничения интерпретации</h5><p>${limitText}</p></div>
+        </div>
+      </div>
+    </div>
+
+    ${predictionBlock}
+
+    ${fineBlock}
+
+    <div class="rp-sign">
+      <div>
+        <div class="rp-sign__who">Заведующий лабораторией</div>
+        <div class="rp-sign__line">
+          <div class="rp-sign__name">[И. О. Фамилия]</div>
+          <div class="rp-sign__role">врач клинической лабораторной диагностики</div>
+        </div>
+        <div class="rp-sign__who" style="margin-top:8px">Дата выдачи: ${fmtD(d)}</div>
+      </div>
+      <div class="seal">${reportSealSVG()}</div>
+    </div>
+
+    <div class="rp-foot">
+      <div>ООО «Геномед» · Лаборатория молекулярной патологии · г. Москва, ул. Бауманская, д. 50/12, стр. 1</div>
+      <div style="text-align:right">Конфиденциально · содержит персональные данные<br>Заключение № ${reportNo} · сформировано ЛИС EpiPrint</div>
+    </div>
+  </div>`;
+}
+
+</script>
+<script>
+/* ============================================================
+   EpiPrint · Lab — минималистичный «LIMS»-слой (bioinformatician-first).
+   Переиспользует данные (data.js) и helpers (app.js: icon, pct, heatColor,
+   heatmapHtml, toast, get/saveFeedback). Заключение — из report-view.js.
+   ============================================================ */
+
+let liveT = null, upd = 0;
+function stopT(){ if(liveT){ clearInterval(liveT); liveT=null; } }
+const SYS = { load: 62, freeTb: 4.2, avgMin: 47 };
+
+/* короткие теги */
+const ST = { done:['done','завершён'], processing:['run','в работе'], queued:['queue','в очереди'], error:['fail','ошибка'], new:['muted','новый'] };
+function stTag(s){ const m=ST[s]||ST.new; return `<span class="st st--${m[0]}">${m[1]}</span>`; }
+function qcTag(v){ return v==='Pass'?'<span class="st st--pass">PASS</span>':'<span class="st st--fail">FAIL</span>'; }
+const RT = { high:['high','высокий'], medium:['med','средний'], low:['low','низкий'] };
+function riskTag(r){ const m=RT[r]; return `<span class="st st--${m[0]}">${m[1]}</span>`; }
+function cancerLabel(k){ const t=CANCER_TYPES.find(x=>x.key===k); return t?t.label:'—'; }
+function sec(t){ return `<span class="sec">${t}</span>`; }
+function fmtMetric(m){ if(m.unit==='%') return m.value+'%'; if(!m.unit) return ''+m.value; return m.value+' '+m.unit; }
+/* скачивание файла на стороне браузера (без бэкенда) */
+function downloadText(filename, text, mime){
+  const blob = new Blob([text], {type:(mime||'text/plain')+';charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+/* qc.json образца — по структуре реального файла пайплайна */
+function buildQcJson(s){ const m=k=>{ const x=s.qc.metrics.find(y=>y.key===k); return x?x.value:null; };
+  return { RESULT: s.qc.verdict==='Pass'?'PASS':'FAIL', FAILED_METRICS: s.qc.failed.join('; '), sample: s.seqId,
+    reads:{
+      before_filtering:{ total_reads:m('brReads'), total_bases:m('brBases'), q20_bases:m('brQ20bases'), q30_bases:m('brQ30bases'), q20_rate:m('brQ20'), q30_rate:m('brQ30'), read1_mean_length:m('brR1'), read2_mean_length:m('brR2'), gc_content:m('brGc') },
+      after_filtering:{ total_reads:m('totalReads'), total_bases:m('totalBases'), q20_bases:m('q20bases'), q30_bases:m('q30bases'), q20_rate:m('q20'), q30_rate:m('q30'), read1_mean_length:m('r1len'), read2_mean_length:m('r2len'), gc_content:m('gc') } },
+    coverage:{ mean:m('meanDepth'), median:m('covMedian'), pct_0x:m('cov0x'), pct_10x:m('cov10'), pct_30x:m('cov30x'), fold_80:m('fold80'), uniformity:m('uniformity') },
+    duplicates:m('dup'),
+    insert_size:{ mean:m('insertMean'), median:m('insert'), mode:m('insertMode') },
+    cpg:{ mean_cov:m('cpgMean'), pct_15x:m('cpg15x'), pct_10x:m('cpg10x'), pct_5x:m('cpgCov'), pct_0x:m('cpg0x'), uniformity:m('cpgUnif'), mbias_diff:m('mbias') },
+    conversion_rate:m('conversion'), strand_ratio:m('strand') }; }
+function downloadSampleQc(id){ const s=sampleById(id); if(!s) return; downloadText('QC_'+s.seqId+'.json', JSON.stringify(buildQcJson(s), null, 2), 'application/json'); toast('Скачан QC_'+s.seqId+'.json'); }
+function plural(n, f){ const a=Math.abs(n)%100, n1=a%10; if(a>10&&a<20) return f[2]; if(n1>1&&n1<5) return f[1]; if(n1===1) return f[0]; return f[2]; }
+const P_OBR=['образец','образца','образцов'], P_ERR=['ошибка','ошибки','ошибок'];
+const CC={ breast:'#e879a6', colorectal:'#e5638f', prostate:'#7ec46b', lung:'#e8952f', liver:'#22c1c9', stomach:'#b7a6e0', pancreas:'#c9b24a', esophagus:'#5aa9e0' };
+function heatmapLoc(hm){
+  const strip = hm.regions.map(r=>`<div class="hm-cell" style="height:7px;background:${CC[r.cancer]||'#ccc'}" title="${cancerLabel(r.cancer)}"></div>`).join('');
+  const rows = hm.rows.map(row=>`<div class="hm-row"><div class="hm-label ${row.strong?'strong':''}">${row.label}</div>${row.values.map(v=>`<div class="hm-cell" style="background:${heatColor(v)}" title="${v}"></div>`).join('')}</div>`).join('');
+  const legend = CANCER_TYPES.map(t=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px"><span style="width:10px;height:10px;border-radius:2px;background:${CC[t.key]}"></span>${t.label}</span>`).join('');
+  return `<div class="heatmap"><div class="heatmap__inner">
+    <div class="hm-row"><div class="hm-label faint" style="font-size:10px">локализация</div>${strip}</div>
+    ${rows}</div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px">${legend}</div>
+    <div class="hm-scale" style="margin-top:6px"><span>0 · низкое</span><div class="hm-scale__bar"></div><span>1 · высокое</span><span class="faint" style="margin-left:auto">${hm.N} регионов</span></div>`;
+}
+function topLociTable(hm){
+  return `<table class="t"><thead><tr><th>Локус</th><th>Локализация</th><th class="num">Образец</th><th class="num">Норма (референс)</th><th>Δ метилирования</th></tr></thead><tbody>${hm.topLoci.map(l=>`
+    <tr><td class="id">${l.gene}_${l.pos}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:${CC[l.cancer]}"></span>${cancerLabel(l.cancer)}</span></td>
+      <td class="num" style="font-weight:600">${Math.round(l.sample*100)}%</td><td class="num faint">${Math.round(l.norm*100)}%</td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div style="width:110px;height:6px;background:var(--line-2);border-radius:2px;overflow:hidden"><div style="height:100%;width:${Math.round(l.delta*100)}%;background:var(--brand)"></div></div><span class="mono" style="font-size:11px">+${Math.round(l.delta*100)}%</span></div></td></tr>`).join('')}</tbody></table>`;
+}
+
+const NAV_MIN = [
+  { r:'dashboard',   l:'Обзор',       ic:'layout-dashboard' },
+  { r:'storage',     l:'Хранилище',   ic:'hard-drive' },
+  { r:'processing',  l:'Обработка',   ic:'list-checks' },
+  { r:'results',     l:'Пациенты',    ic:'microscope' },
+  { r:'conclusions', l:'Заключения',  ic:'file-text' },
+  { g:'Служебное' },
+  { r:'users',       l:'Пользователи',ic:'users' },
+];
+
+function shell(active, title){
+  const proc = SAMPLES.filter(s=>s.status==='processing'||s.status==='queued').length;
+  const newN = STORAGE.reduce((a,r)=>a+r.files.filter(f=>!f.launched).length,0);
+  const nav = NAV_MIN.map(n=> n.g ? `<div class="nav__g">${n.g}</div>`
+    : `<a class="nav__i ${active===n.r?'on':''}" href="#/${n.r}">${icon(n.ic)}<span>${n.l}</span>${n.r==='processing'&&proc?`<span class="n">${proc}</span>`:''}${n.r==='storage'&&newN?`<span class="n">${newN}</span>`:''}</a>`).join('');
+  document.getElementById('sb').innerHTML = `
+    <div class="sb__brand"><div class="sb__mark">${icon('fingerprint')}</div>
+      <div class="sb__name">EpiPrint<small>Genomed</small></div></div>
+    <nav class="nav">${nav}</nav>
+    <div class="sb__foot">прототип · v0.1 · демо</div>`;
+  const mountsOk = MOUNTS.every(m=>m.status==='ok');
+  document.title = `EpiPrint · ${title}`;
+  document.getElementById('top').innerHTML = `
+    <button class="topbtn" id="sbToggle" title="Скрыть / показать меню" aria-label="Скрыть или показать боковое меню">${icon('menu')}</button>
+    <div class="top__sys">
+      <span>кластер <b>${SYS.load}%</b></span><span>свободно <b>${SYS.freeTb} ТБ</b></span>
+      <span><span class="live"></span>обновлено <b id="updv">0с</b></span>
+    </div>
+    <div class="spacer"></div>
+    <label class="fontctl" title="Размер шрифта"><span>A</span><input type="range" id="fontRange" min="90" max="130" step="5" value="${Math.round(fontZoom*100)}"></label>
+    <input class="search" id="gsearch" placeholder="поиск: SeqID / ФИО">
+    <div class="avatar">${CURRENT_USER.initials}</div>`;
+  applyZoom();
+  try{ document.body.classList.toggle('sb-hidden', localStorage.getItem('epiprint_sb_hidden')==='1'); }catch(e){}
+  const sbToggle = document.getElementById('sbToggle');
+  if(sbToggle) sbToggle.addEventListener('click', ()=>{ const hid=document.body.classList.toggle('sb-hidden'); try{ localStorage.setItem('epiprint_sb_hidden', hid?'1':'0'); }catch(e){} });
+  const fr = document.getElementById('fontRange');
+  fr.addEventListener('input', ()=>{ fontZoom = fr.value/100; try{ localStorage.setItem('epiprint_zoom', fontZoom); }catch(e){} applyZoom(); });
+  const gs = document.getElementById('gsearch');
+  gs.addEventListener('keydown', e=>{ if(e.key==='Enter'&&gs.value.trim()){ minSearch=gs.value.trim(); location.hash='#/results'; }});
+  startClock();
+}
+let minSearch='';
+let fontZoom = (()=>{ try{ return parseFloat(localStorage.getItem('epiprint_zoom'))||1; }catch(e){ return 1; } })();
+function applyZoom(){ const el=document.getElementById('view'); if(el) el.style.zoom = fontZoom; }
+function setDense(on){ document.body.classList.toggle('dense', on); try{ localStorage.setItem('epiprint_dense', on?'1':'0'); }catch(e){} setDenseSeg(); }
+function setDenseSeg(){ const on=document.body.classList.contains('dense'); const seg=document.getElementById('denseSeg'); if(seg) seg.querySelectorAll('button').forEach(b=> b.classList.toggle('on', (b.dataset.d==='1')===on)); }
+function startClock(){ const el=()=>document.getElementById('updv'); }
+
+/* «живой» счётчик обновления в шапке */
+setInterval(()=>{ upd+=1; const e=document.getElementById('updv'); if(e) e.textContent=upd+'с'; }, 1000);
+
+/* ================= Обзор (bioinformatician-first) ================= */
+function rDash(v){
+  const done=SAMPLES.filter(s=>s.status==='done'), proc=SAMPLES.filter(s=>s.status==='processing'),
+        q=SAMPLES.filter(s=>s.status==='queued'), err=SAMPLES.filter(s=>s.status==='error'),
+        newN=STORAGE.reduce((a,r)=>a+r.files.filter(f=>!f.launched).length,0);
+  const qcFail = done.filter(s=>s.qc.verdict==='Fail');
+  const active = [...proc, ...q];
+  const mountsBad = MOUNTS.filter(m=>m.status!=='ok'); const mountsOk = mountsBad.length===0;
+
+  const strip = `<div class="strip">
+    <div class="strip__i"><span class="strip__n">${SAMPLES.length}</span><span class="strip__l">${plural(SAMPLES.length,P_OBR)}</span></div>
+    <div class="strip__i b-pass"><span class="strip__n">${done.length}</span><span class="strip__l">завершено</span></div>
+    <div class="strip__i b-run"><span class="strip__n">${proc.length}</span><span class="strip__l">в работе</span></div>
+    <div class="strip__i"><span class="strip__n">${q.length}</span><span class="strip__l">в очереди</span></div>
+    <div class="strip__i b-fail"><span class="strip__n">${err.length}</span><span class="strip__l">${plural(err.length,P_ERR)}</span></div>
+    <div class="strip__i b-warn"><span class="strip__n">${newN}</span><span class="strip__l">к запуску</span></div>
+  </div>`;
+
+  const activeRows = active.length ? active.map(s=>{
+    const idx = s.status==='processing'? 4 : 0;
+    const eta = s.status==='processing'? Math.max(1,(PIPELINE_STAGES.length-idx)*5)+' мин' : '—';
+    return `<tr class="clk" onclick="location.hash='#/sample/${s.id}'"><td class="id">${s.seqId}</td>
+      <td>${stTag(s.status)}</td><td class="num faint">${s.status==='processing'?idx+'/'+PIPELINE_STAGES.length:'—'}</td>
+      <td class="num faint">${eta}</td></tr>`;
+  }).join('') : `<tr><td colspan="4" class="empty">Активных задач нет</td></tr>`;
+
+  const alerts = [
+    ...err.map(s=>`<div class="alert"><span style="color:var(--fail)">${icon('circle-x')}</span><span class="mono">${s.seqId}</span><span class="muted">ошибка пайплайна</span></div>`),
+    ...qcFail.slice(0,4).map(s=>`<div class="alert"><span style="color:var(--warn)">${icon('alert-triangle')}</span><span class="mono">${s.seqId}</span><span class="muted">QC: ${s.qc.failed[0]||'fail'}</span></div>`),
+    ...MOUNTS.filter(m=>m.status!=='ok').map(m=>`<div class="alert"><span style="color:var(--warn)">${icon('server')}</span><span class="mono">${m.name}</span><span class="muted">${m.note}</span></div>`),
+  ];
+
+  const recent = [...done].sort((a,b)=>b.id-a.id).slice(0,8).map(s=>`
+    <tr class="clk" onclick="location.hash='#/sample/${s.id}'"><td class="id">${s.seqId}</td>
+      <td>${qcTag(s.qc.verdict)}</td>
+      <td class="num"><b style="color:${riskC(s.score.risk)}">${pct(s.score.cancerProb)}</b></td>
+      <td>${riskTag(s.score.risk)}</td><td>${cancerLabel(s.score.topType)}</td><td class="mono faint">${s.date}</td></tr>`).join('');
+
+  v.innerHTML = `
+    <div class="ph"><h1>Обзор</h1><span class="sub">поток за последние 7 дней</span></div>
+    ${strip}
+    <div class="grid" style="grid-template-columns:1.7fr 1fr;align-items:start">
+      <div class="grid" style="grid-template-columns:1fr">
+        <div class="panel"><div class="panel__h">${sec(icon('list-checks')+'Очередь')}<span class="st st--run" style="margin-left:6px">${active.length}</span><span class="spacer"></span><span class="faint mono" style="font-size:.7rem"><span class="live"></span>live</span></div>
+          <div class="tw"><table class="t"><thead><tr><th>SeqID</th><th>Статус</th><th class="num">Этап</th><th class="num">ETA</th></tr></thead><tbody>${activeRows}</tbody></table></div></div>
+        <div class="panel"><div class="panel__h">${sec(icon('microscope')+'Последние образцы')}<span class="spacer"></span><a class="btn btn--sm" href="#/results">все →</a></div>
+          <div class="tw"><table class="t"><thead><tr><th>SeqID</th><th>QC</th><th class="num">Скор (ML)</th><th>Риск</th><th>Локализация</th><th>Дата</th></tr></thead><tbody>${recent}</tbody></table></div></div>
+      </div>
+      <div class="grid" style="grid-template-columns:1fr">
+        <div class="panel"><div class="panel__h">${sec(icon('server')+'Система')}</div><div class="panel__b">
+          <div class="leads">
+            <div class="lead"><span class="k">Загрузка кластера</span><span class="d"></span><span class="v">${SYS.load}%</span></div>
+            <div class="lead"><span class="k">Свободно в хранилище</span><span class="d"></span><span class="v">${SYS.freeTb} ТБ</span></div>
+            <div class="lead"><span class="k">Среднее время обработки</span><span class="d"></span><span class="v">${SYS.avgMin} минут на образец</span></div>
+            <div class="lead"><span class="k">Монтирования (диски хранилище→зеркало→веб)</span><span class="d"></span><span class="v ${mountsOk?'pass':'fail'}">${MOUNTS.length-mountsBad.length}/${MOUNTS.length}</span></div>
+          </div>
+          <details class="dd" ${mountsOk?'':'open'} style="margin-top:8px"><summary>точки монтирования${mountsBad.length?` · ${mountsBad.length} с проблемой`:' · все в норме'}</summary>
+            <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px">${MOUNTS.map(m=>{ const col=m.status==='ok'?'var(--pass)':m.status==='warn'?'var(--warn)':'var(--fail)'; const lab=m.status==='ok'?'ok':m.status==='warn'?'внимание':'ошибка';
+              return `<div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="width:8px;height:8px;border-radius:50%;background:${col};flex:none"></span><span class="mono" style="font-size:11px">${m.name}</span><span class="faint mono" style="font-size:10.5px">${m.path}</span><span style="margin-left:auto;color:${m.status!=='ok'?col:'var(--ink-3)'};font-size:11.5px">${m.note} · ${lab}</span></div>`; }).join('')}</div>
+            <div class="faint" style="font-size:11px;margin-top:6px">Доступность цепочки монтирований, по которой данные с секвенатора попадают в хранилище, зеркало и веб-выдачу. «${MOUNTS.length-mountsBad.length}/${MOUNTS.length}» — часть точек недоступна или деградирована (подсвечены выше).</div>
+          </details></div></div>
+        <div class="panel"><div class="panel__h">${sec(icon('alert-triangle')+'Оповещения')}<span class="st st--warn" style="margin-left:6px">${alerts.length}</span></div>
+          <div>${alerts.length?alerts.join(''):'<div class="alert muted">Нет оповещений</div>'}</div></div>
+      </div>
+    </div>`;
+
+  liveT = setInterval(()=>{ /* лёгкая живость: обновление ETA-строки не требуется, тик в шапке уже идёт */ }, 4000);
+}
+function riskC(r){ return r==='high'?'var(--risk-high)':r==='medium'?'var(--risk-med)':'var(--risk-low)'; }
+
+/* ================= Обработка ================= */
+/* ================= Хранилище (К запуску + архив) ================= */
+function rStorage(v){
+  const selected=new Set();
+  const newList=()=>{ const a=[]; STORAGE.forEach(r=>r.files.forEach(f=>{ if(!f.launched) a.push(f); })); return a; };
+  v.innerHTML = `
+    <div class="ph"><h1>Хранилище</h1><span class="sub">образцы с секвенатора · запуск</span><span class="spacer"></span>
+      <button class="btn btn--sm" onclick="toast('Обновлено')">${icon('refresh-cw')} обновить</button></div>
+    <div class="panel"><div class="panel__h">${sec(icon('folder')+'К запуску')}<span class="st st--warn" style="margin-left:6px" id="newCnt"></span><span class="spacer"></span>
+      <label class="faint" style="font-size:.78rem"><input type="checkbox" class="chk" id="selAll"> все</label>
+      <button class="btn btn--sm" id="runSel" disabled>${icon('play')} запустить</button>
+      <button class="btn btn--sm btn--pri" id="runAll">${icon('play')} запустить все</button></div>
+      <div class="tw"><table class="t"><thead><tr><th style="width:26px"></th><th>SeqID</th><th class="num">Размер</th><th>Статус</th></tr></thead><tbody id="newRows"></tbody></table></div></div>
+    <div class="panel" style="margin-top:var(--gap)"><div class="panel__h">${sec(icon('hard-drive')+'Архив загрузок')}<span class="faint" style="font-size:.78rem;margin-left:auto">${STORAGE.length} загрузок</span></div>
+      <div id="arch"></div></div>`;
+  const nr=v.querySelector('#newRows');
+  function updSel(){ const n=selected.size; v.querySelector('#runSel').disabled=n===0; v.querySelector('#runSel').innerHTML=`${icon('play')} запустить${n?' · '+n:''}`; }
+  function drawNew(){
+    const list=newList(); v.querySelector('#newCnt').textContent=list.length;
+    nr.innerHTML = list.length? list.map(f=>`<tr><td><input type="checkbox" class="chk nchk" data-n="${f.basename}" ${selected.has(f.basename)?'checked':''}></td>
+      <td class="id">${f.basename}</td><td class="num faint">${f.sizeGb} ГБ</td><td><span class="st st--muted">готов</span></td></tr>`).join('')
+      : `<tr><td colspan="4" class="empty">Новых образцов нет — всё запущено</td></tr>`;
+    nr.querySelectorAll('.nchk').forEach(c=> c.addEventListener('change',()=>{ c.checked?selected.add(c.dataset.n):selected.delete(c.dataset.n); updSel(); }));
+    v.querySelector('#runAll').disabled=!list.length; v.querySelector('#selAll').disabled=!list.length; updSel();
+  }
+  function drawArch(){
+    v.querySelector('#arch').innerHTML = STORAGE.map(r=>{
+      const rows=r.files.map(f=>{ const clk=typeof f.id==='number';
+        return `<tr${clk?` class="clk" onclick="location.hash='#/sample/${f.id}'"`:''}><td class="id">${f.basename}</td><td class="num faint">${f.sizeGb} ГБ</td><td>${f.launched?stTag(f.status):'<span class="st st--muted">готов</span>'}</td></tr>`; }).join('');
+      return `<details class="dd" style="border-top:1px solid var(--line-2);padding:6px 14px"><summary><span class="mono">${r.run}</span> <span class="faint" style="font-size:.72rem">· ${r.ref} · ${r.created} · ${r.files.length} ${plural(r.files.length,P_OBR)}</span></summary>
+        <div class="tw" style="margin-top:6px"><table class="t"><thead><tr><th>SeqID</th><th class="num">Размер</th><th>Статус</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+    }).join('');
+  }
+  function launch(names){ if(!names.length){ toast('Нет готовых образцов'); return; }
+    STORAGE.forEach(r=>r.files.forEach(f=>{ if(names.includes(f.basename)){ f.launched=true; f.status='queued'; }}));
+    selected.clear(); v.querySelector('#selAll').checked=false; drawNew(); drawArch(); toast(`${names.length} образц(ов) в очереди обработки`); }
+  v.querySelector('#selAll').addEventListener('change',e=>{ nr.querySelectorAll('.nchk').forEach(c=>{ c.checked=e.target.checked; c.checked?selected.add(c.dataset.n):selected.delete(c.dataset.n); }); updSel(); });
+  v.querySelector('#runSel').addEventListener('click',()=>launch([...selected]));
+  v.querySelector('#runAll').addEventListener('click',()=>launch(newList().map(f=>f.basename)));
+  drawNew(); drawArch();
+}
+
+/* ================= Обработка (очередь) ================= */
+function rProc(v){
+  v.innerHTML = `
+    <div class="ph"><h1>Обработка</h1><span class="sub">очередь на кластере</span></div>
+    <div class="panel"><div class="panel__h">${sec(icon('list-checks')+'Очередь обработки')}<span class="spacer"></span>
+      <span class="faint" style="font-size:.78rem" id="qlive"></span>
+      <label class="faint" style="font-size:.78rem"><input type="checkbox" class="chk" id="auto" checked> авто</label></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 14px 2px">
+        <div class="seg" id="qtabs">
+          <button data-s="all" class="on">все&nbsp;<b id="qc-all"></b></button>
+          <button data-s="processing">в работе&nbsp;<b id="qc-processing"></b></button>
+          <button data-s="queued">в очереди&nbsp;<b id="qc-queued"></b></button>
+          <button data-s="done">завершён&nbsp;<b id="qc-done"></b></button>
+          <button data-s="error">ошибка&nbsp;<b id="qc-error"></b></button>
+        </div>
+        <span class="spacer"></span>
+        <input class="search" id="qsearch" style="width:250px" placeholder="поиск по SeqID (частичное совпадение)">
+      </div>
+      <div class="tw"><table class="t"><thead><tr><th>ID</th><th>Создан</th><th>SeqID</th><th>Этапы анализа</th><th class="num">ETA</th><th>Статус</th><th>Логи</th></tr></thead><tbody id="qRows"></tbody></table></div></div>`;
+  const Q=JSON.parse(JSON.stringify(QUEUE)); let tsince=0; const openQ=new Set();
+  let curFilter='all', curQuery='';
+  function counts(){ ['all','processing','queued','done','error'].forEach(k=>{ const n=k==='all'?Q.length:Q.filter(q=>q.status===k).length; const e=v.querySelector('#qc-'+k); if(e) e.textContent=n; }); }
+  function visible(){ return Q.filter(q=> (curFilter==='all'||q.status===curFilter) && (!curQuery||q.seqId.toLowerCase().includes(curQuery)) ); }
+  const stStatus=(q,i)=> (q.status==='error'&&i===q.stageIdx)?'err' : i<q.stageIdx?'done' : (i===q.stageIdx&&q.status==='processing')?'run':'wait';
+  function stepsMini(q){ return `<div style="display:flex;gap:2px">`+PIPELINE_STAGES.map((_,i)=>{ const c=stStatus(q,i); const col=c==='done'?'var(--pass)':c==='run'?'var(--info)':c==='err'?'var(--fail)':'var(--line)'; return `<span style="width:11px;height:5px;border-radius:1px;background:${col}"></span>`; }).join('')+`</div><div class="faint" style="font-size:.68rem;margin-top:2px">${q.status==='processing'?PIPELINE_STAGES[q.stageIdx]:q.status==='error'?'⚠ '+PIPELINE_STAGES[q.stageIdx]:q.status==='done'?'готово':'ожидает'}</div>`; }
+  function stageList(q){ const rng=rngFor(q.seqId+'_st'); const dm=q.created.match(/(\d+)\s+(\S+?)\.?\s+(\d+):(\d+)/);
+    let day=dm?dm[1]:'09',mon=dm?dm[2]:'июл',hh=dm?+dm[3]:15,mm=dm?+dm[4]:0,ss=between(rng,0,59);
+    return `<div class="steps2">`+PIPELINE_STAGES.map((name,i)=>{ const st=stStatus(q,i); let t='',d='';
+      if(st==='done'){ t=`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`; const dM=between(rng,0,26),dS=between(rng,1,59); d=dM?`${dM} мин`:`${dS} сек`; mm+=dM; ss=(ss+dS)%60; while(mm>=60){mm-=60;hh++;} }
+      else if(st==='run') t='выполняется'; else if(st==='err') t='ошибка'; else t='—';
+      const mk=st==='done'?'✓':st==='err'?'✕':st==='run'?'●':(i+1);
+      return `<div class="step2"><span class="mk ${st}">${mk}</span><span class="nm">${name}</span><span class="tm">${t}${d?' · '+d:''}</span></div>`; }).join('')+`</div>`; }
+  function drawQ(){
+    const rows=v.querySelector('#qRows');
+    rows.querySelectorAll('details[data-q]').forEach(d=>{ if(d.open)openQ.add(d.dataset.q); else openQ.delete(d.dataset.q); });
+    const rowsHtml = visible().map(q=>{ const idx=q.stageIdx; const eta=q.status==='processing'?Math.max(1,(PIPELINE_STAGES.length-idx)*5)+' мин':q.status==='queued'?'в очереди':'—';
+      return `<tr class="${q.status==='done'?'clk':''}" ${q.status==='done'?`onclick="location.hash='#/sample/${q.id}'"`:''} style="vertical-align:top">
+        <td class="mono faint">${q.id}</td><td class="mono faint" style="font-size:11px">${q.created}</td><td class="id">${q.seqId}</td>
+        <td><details class="dd" data-q="${q.id}" ${openQ.has(String(q.id))?'open':''} onclick="event.stopPropagation()"><summary>${stepsMini(q)}</summary><div style="margin-top:4px;min-width:340px">${stageList(q)}</div></details></td>
+        <td class="num faint">${eta}</td><td>${stTag(q.status)}</td>
+        <td><a class="mono" style="font-size:11px;cursor:pointer" onclick="event.stopPropagation();toast('status.log')">status.log</a></td></tr>`;
+    }).join('');
+    rows.innerHTML = rowsHtml || '<tr><td colspan="7" class="empty">Ничего не найдено</td></tr>';
+    counts();
+  }
+  function qlive(){ const a=Q.filter(q=>q.status==='processing').length; v.querySelector('#qlive').innerHTML=`<span class="live"></span>${a} в работе · обновлено ${tsince}с`; }
+  function tick(){ if(!v.querySelector('#auto').checked){ tsince+=2; qlive(); return; } tsince=0;
+    Q.forEach(q=>{ if(q.status==='processing'&&Math.random()>.4){ q.stageIdx++; if(q.stageIdx>=PIPELINE_STAGES.length){ q.status='done'; q.stageIdx=PIPELINE_STAGES.length; const nx=Q.find(x=>x.status==='queued'); if(nx){ nx.status='processing'; nx.stageIdx=1; } } } });
+    drawQ(); qlive(); }
+  v.querySelectorAll('#qtabs button').forEach(b=>b.addEventListener('click',()=>{ v.querySelectorAll('#qtabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); curFilter=b.dataset.s; drawQ(); }));
+  v.querySelector('#qsearch').addEventListener('input',e=>{ curQuery=e.target.value.trim().toLowerCase(); drawQ(); });
+  drawQ(); qlive();
+  liveT=setInterval(()=>{ tsince+=2; if(v.querySelector('#auto')&&v.querySelector('#auto').checked) tick(); else qlive(); }, 2000);
+}
+
+/* ================= Пациенты (реестр + QC) ================= */
+function rResults(v, sub){
+  let tab = sub==='qc'?'qc':'reg';
+  v.innerHTML = `
+    <div class="ph"><h1>Пациенты</h1><span class="sub">реестр и контроль качества</span></div>
+    <div class="seg" id="tabs" style="margin-bottom:10px"><button data-t="reg">Реестр</button><button data-t="qc">Контроль качества</button></div>
+    <div id="c"></div>`;
+  const c=v.querySelector('#c');
+  function setTab(t){ tab=t; v.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); t==='qc'?drawQC(c):drawReg(c); }
+  v.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.t)));
+  setTab(tab);
+}
+function drawReg(c){
+  c.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input class="search" id="q" style="width:280px" placeholder="ФИО / SeqID / код / ERP">
+      <select class="sel" id="fs"><option value="">все статусы</option><option value="done">завершён</option><option value="processing">в работе</option><option value="queued">в очереди</option><option value="error">ошибка</option></select>
+      <select class="sel" id="fr"><option value="">любой риск</option><option value="high">высокий</option><option value="medium">средний</option><option value="low">низкий</option></select>
+      <span class="spacer"></span><span class="faint mono" id="cnt" style="align-self:center;font-size:.72rem"></span></div>
+    <div class="panel tw"><table class="t"><thead><tr><th>ID</th><th>ФИО пациента</th><th>Контрагент</th><th>ERP</th><th>SeqID</th><th>Статус</th><th>QC</th><th class="num">Скор (ML)</th><th>Риск</th><th>Заключение</th><th>Дата</th></tr></thead><tbody id="rows"></tbody></table></div>`;
+  const qi=c.querySelector('#q'); qi.value=minSearch||'';
+  function apply(){ const q=qi.value.trim().toLowerCase(); minSearch=qi.value.trim(); const st=c.querySelector('#fs').value, r=c.querySelector('#fr').value;
+    const list=SAMPLES.filter(s=>{ if(q&&!(s.seqId.toLowerCase().includes(q)||s.fio.toLowerCase().includes(q)||s.patientCode.toLowerCase().includes(q)||String(s.patientNo).toLowerCase().includes(q))) return false;
+      if(st&&s.status!==st) return false; if(r&&(!s.score||s.score.risk!==r)) return false; return true; }).sort((a,b)=>b.id-a.id);
+    c.querySelector('#cnt').textContent=`${list.length} / ${SAMPLES.length}`;
+    c.querySelector('#rows').innerHTML = list.length? list.map(s=>`<tr class="clk" onclick="location.hash='#/sample/${s.id}'">
+      <td class="mono faint">${s.id}</td><td>${s.fio}</td><td class="faint" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${s.contractor}</td>
+      <td class="mono faint">${s.patientNo}</td><td class="id">${s.seqId}</td><td>${stTag(s.status)}</td>
+      <td>${s.status==='done'?qcTag(s.qc.verdict):'<span class="faint">—</span>'}</td>
+      <td class="num">${s.score?`<b style="color:${riskC(s.score.risk)}">${pct(s.score.cancerProb)}</b>`:'<span class="faint">—</span>'}</td>
+      <td>${s.score?riskTag(s.score.risk):'<span class="faint">—</span>'}</td>
+      <td>${s.status==='done'?`<a class="mono" style="font-size:11px" href="#/report/${s.id}" onclick="event.stopPropagation()">открыть</a>`:'<span class="faint">—</span>'}</td>
+      <td class="mono faint">${s.date}</td></tr>`).join('') : `<tr><td colspan="11" class="empty">Ничего не найдено</td></tr>`;
+  }
+  qi.addEventListener('input',apply); ['fs','fr'].forEach(id=>c.querySelector('#'+id).addEventListener('change',apply)); apply();
+}
+function drawQC(c){
+  const done=SAMPLES.filter(s=>s.status==='done'); const pass=done.filter(s=>s.qc.verdict==='Pass').length;
+  const convMetric=s=>s.qc.metrics.find(x=>x.key==='conversion');
+  const convAvg = done.length? (done.reduce((a,s)=>{ const m=convMetric(s); return a+(m?m.value:0); },0)/done.length).toFixed(4) : '—';
+  // столбцы = все метрики, кроме ридов, сгруппированные по блокам qc.json
+  const schema = (SAMPLES[0]&&SAMPLES[0].qc.metrics)||[];
+  const cols = QC_BLOCKS.flatMap(bl=> schema.filter(m=>m.block===bl.key).map(m=>({block:bl.key, key:m.key, short:m.short})) );
+  const groupHead = QC_BLOCKS.map(bl=>{ const n=cols.filter(cc=>cc.block===bl.key).length; return n?`<th colspan="${n}" class="qc-grp">${bl.label}</th>`:''; }).join('');
+  const metricHead = cols.map(cc=>`<th class="num">${cc.short}</th>`).join('');
+  c.innerHTML = `
+    <div class="strip" style="margin-bottom:10px">
+      <div class="strip__i"><span class="strip__n">${done.length}</span><span class="strip__l">${plural(done.length,P_OBR)}</span></div>
+      <div class="strip__i b-pass"><span class="strip__n">${pass}</span><span class="strip__l">pass</span></div>
+      <div class="strip__i b-fail"><span class="strip__n">${done.length-pass}</span><span class="strip__l">fail</span></div>
+      <div class="strip__i"><span class="strip__n">${convAvg}</span><span class="strip__l">средняя конверсия</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><div class="seg" id="ff"><button data-f="all" class="on">все</button><button data-f="Pass">pass</button><button data-f="Fail">fail</button></div>
+      <input class="search" id="qcq" style="width:220px" placeholder="поиск по SeqID (частичное совпадение)">
+      <span class="spacer"></span>
+      <button class="btn btn--sm" id="qcExport">${icon('download')} экспорт (TSV)</button></div>
+    <div class="faint" style="font-size:11px;margin-bottom:6px">Показаны все метрики контроля качества, кроме ридов (риды — в карточке образца, блок «Дополнительные метрики»). Метрики сгруппированы по блокам qc.json; таблица прокручивается вправо →</div>
+    <div class="panel tw"><table class="t qc-wide"><thead>
+      <tr><th rowspan="2">SeqID</th><th rowspan="2">Итог</th><th rowspan="2">Метрики вне порогов</th>${groupHead}</tr>
+      <tr>${metricHead}</tr></thead><tbody id="qcr"></tbody></table></div>`;
+  let filter='all';
+  const cell=m=>{ if(!m)return '<td class="num faint">—</td>'; const col=m.threshold==='справочно'?'var(--ink-2)':m.pass?'var(--ink)':'var(--fail)'; return `<td class="num" style="color:${col}">${m.value}</td>`; };
+  function filteredList(){ const q=c.querySelector('#qcq').value.trim().toLowerCase();
+    return done.filter(s=>(filter==='all'||s.qc.verdict===filter)&&(!q||s.seqId.toLowerCase().includes(q))); }
+  function draw(){ const list=filteredList();
+    c.querySelector('#qcr').innerHTML=list.length?list.map(s=>{ const mv=k=>s.qc.metrics.find(x=>x.key===k);
+      return `<tr class="clk" onclick="location.hash='#/sample/${s.id}'"><td class="id">${s.seqId}</td><td>${qcTag(s.qc.verdict)}</td>
+      <td class="faint" style="font-size:11px">${s.qc.failed.length?s.qc.failed.join(', '):'—'}</td>
+      ${cols.map(cc=>cell(mv(cc.key))).join('')}</tr>`; }).join('')
+      :`<tr><td colspan="${3+cols.length}" class="empty">Ничего не найдено</td></tr>`; }
+  function exportTsv(){ const list=filteredList();
+    const header=['SeqID','Итог','Метрики вне порогов', ...cols.map(cc=>{ const m=schema.find(x=>x.key===cc.key); return m.name+(m.unit?' ('+m.unit+')':''); })];
+    const rows=list.map(s=>{ const mv=k=>s.qc.metrics.find(x=>x.key===k);
+      return [s.seqId, s.qc.verdict, s.qc.failed.join('; '), ...cols.map(cc=>{ const m=mv(cc.key); return m?m.value:''; })]; });
+    const tsv=[header,...rows].map(r=>r.join('\t')).join('\n');
+    downloadText(`EpiPrint_QC_${filter}.tsv`, tsv, 'text/tab-separated-values');
+    toast(`Экспортировано строк: ${list.length}`); }
+  c.querySelectorAll('#ff button').forEach(b=>b.addEventListener('click',()=>{ c.querySelectorAll('#ff button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); filter=b.dataset.f; draw(); }));
+  c.querySelector('#qcExport').addEventListener('click',exportTsv);
+  c.querySelector('#qcq').addEventListener('input',draw); draw();
+}
+
+/* ================= Карточка образца (LIMS) ================= */
+function rSample(v, id){
+  const s=sampleById(id)||SAMPLES[0];
+  const d=new Date(s.date+'T00:00:00'); const fmt=x=>`${String(x.getDate()).padStart(2,'0')}.${String(x.getMonth()+1).padStart(2,'0')}.${x.getFullYear()}`;
+  const coll=new Date(d); coll.setDate(d.getDate()-3);
+  const head = `
+    <a class="btn btn--sm" href="#/results" style="margin-bottom:10px">${icon('arrow-left')} к реестру</a>
+    <div class="lims-head" style="margin-bottom:var(--gap)">
+      <span class="id">${s.seqId}</span>${stTag(s.status)}${s.status==='done'?qcTag(s.qc.verdict):''}${s.score?riskTag(s.score.risk):''}
+      <span class="m">${s.ref}</span><span class="m">Vazyme</span><span class="m">${s.run}</span>
+      <span class="spacer"></span>
+      <a class="btn btn--sm btn--pri" href="#/report/${s.id}">${icon('file-text')} заключение</a>
+    </div>`;
+
+  if(s.status!=='done'){
+    const idx=s.status==='processing'?4:s.status==='error'?3:0;
+    v.innerHTML = head + `<div class="panel"><div class="panel__h">${sec(icon('clock')+'Обработка')}</div><div class="panel__b">
+      <div class="steps2">${PIPELINE_STAGES.map((n,i)=>{ const st=i<idx?'done':(i===idx&&s.status==='processing')?'run':(i===idx&&s.status==='error')?'err':'wait';
+        const mk=st==='done'?'✓':st==='err'?'✕':st==='run'?'●':(i+1);
+        return `<div class="step2"><span class="mk ${st}">${mk}</span><span class="nm">${n}</span><span class="tm">${st==='done'?'готово':st==='run'?'выполняется':st==='err'?'ошибка':'—'}</span></div>`; }).join('')}</div>
+      ${s.status==='error'?`<div class="alert" style="color:var(--fail);margin-top:8px">${icon('circle-x')} Обработка остановлена на этапе «${PIPELINE_STAGES[idx]}». Проверьте логи.</div>`:''}
+    </div></div>`;
+    return;
+  }
+  const sc=s.score; const g=k=>s.qc.metrics.find(m=>m.key===k);
+  const lead=(k,v2,ok)=>`<div class="lead"><span class="k">${k}</span><span class="d"></span><span class="v ${ok===true?'pass':ok===false?'fail':''}">${v2}</span></div>`;
+
+  // метаданные (компактно, второстепенно для биоинформатика)
+  const meta = `<div class="panel"><div class="panel__h">${sec(icon('file-text')+'Метаданные')}</div><div class="panel__b">
+    <div class="kvcols">
+      <div><div class="k">ФИО</div><div class="v" style="font-family:var(--body)">${s.fio}</div></div>
+      <div><div class="k">Пол / возраст</div><div class="v">${s.sex==='Ж'?'женский':'мужской'}, ${s.age}</div></div>
+      <div><div class="k">Контрагент</div><div class="v" style="font-family:var(--body)">${s.contractor}</div></div>
+      <div><div class="k">ERP</div><div class="v">${s.patientNo}</div></div>
+      <div><div class="k">Биоматериал</div><div class="v" style="font-family:var(--body)">плазма, cfDNA</div></div>
+      <div><div class="k">Забор → готовность</div><div class="v">${fmt(coll)} → ${fmt(d)}</div></div>
+      <div><div class="k">Референс</div><div class="v">GRCh38 (${s.ref})</div></div>
+      <div><div class="k">Договор</div><div class="v">Д-${s.id}/26</div></div>
+    </div></div></div>`;
+
+  // QC (главное для биоинформатика) + прогноз рядом — метрики сгруппированы по блокам qc.json
+  const renderLead = m => { const gated=m.threshold!=='справочно'; const ok=gated?m.pass:null;
+    const thr = gated ? `<span class="qc-thr" title="Порог из литературы: ${(m.src||'').replace(/"/g,'&quot;')}">${m.threshold}</span>` : `<span class="qc-thr faint" title="Числового порога в литературе нет — показатель справочный">справочно</span>`;
+    return `<div class="lead"><span class="k">${m.name}</span><span class="d"></span>${thr}<span class="v ${ok===true?'pass':ok===false?'fail':''}">${fmtMetric(m)}</span></div>`; };
+  const qcBlocksHtml = QC_BLOCKS.map(bl=>{ const ms=s.qc.metrics.filter(m=>m.block===bl.key); if(!ms.length) return '';
+    return `<div class="qc-block"><div class="qc-block__h">${bl.label}</div><div class="leads">${ms.map(renderLead).join('')}</div></div>`; }).join('');
+  const readsMetrics = s.qc.metrics.filter(m=>m.block==='reads');
+
+  const qcPanel = `<div class="panel"><div class="panel__h">${sec(icon('shield-check')+'Контроль качества')}<span class="spacer"></span>${qcTag(s.qc.verdict)}</div><div class="panel__b">
+    ${qcBlocksHtml}
+    ${s.qc.failed.length?`<div class="alert" style="color:var(--warn);padding-left:0">${icon('alert-triangle')} вне порогов: ${s.qc.failed.join(', ')}</div>`:''}
+    <details class="dd" style="margin-top:8px"><summary>${QC_READS_LABEL}</summary><div class="leads" style="margin-top:4px">${readsMetrics.map(renderLead).join('')}</div></details>
+  </div></div>`;
+
+  const locBars = CANCER_TYPES.map(t=>({...t,x:sc.localization[t.key]})).sort((a,b)=>b.x-a.x).map((e)=>`
+    <div class="loc ${e.key===sc.topType&&sc.cancerProb>0.5?'hi':''}"><span class="nm">${e.label}</span><span class="t"><i style="width:${Math.max(2,e.x*100).toFixed(0)}%"></i></span><span class="vv">${pct(e.x,1)}</span></div>`).join('');
+  const predPanel = `<div class="panel"><div class="panel__h">${sec(icon('activity')+'Прогноз — ML-модель')}</div><div class="panel__b">
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px">
+      <span class="score-big ${sc.risk}">${pct(sc.cancerProb)}</span><span class="faint" style="font-size:12px">вероятность онкопроцесса</span><span class="spacer"></span>${riskTag(sc.risk)}</div>
+    <div style="font-size:12.5px;color:var(--ink-2);margin-bottom:8px">${sc.cancerProb>0.5?`Наиболее вероятная локализация — <b>${cancerLabel(sc.topType)}</b>.`:'Признаков онкопроцесса не выявлено.'}</div>
+    ${sec(icon('dna')+'Локализация')}<div style="margin-top:6px">${locBars}</div>
+  </div></div>`;
+
+  // пайплайн
+  const pipe = `<div class="panel"><div class="panel__h">${sec(icon('list-checks')+'Обработка · '+PIPELINE_STAGES.length+' этапов')}<span class="spacer"></span><span class="faint mono" style="font-size:.72rem">${SYS.avgMin} мин</span></div><div class="panel__b">
+    <div class="steps2">${PIPELINE_STAGES.map((n,i)=>`<div class="step2"><span class="mk done">✓</span><span class="nm">${n}</span><span class="tm">готово</span></div>`).join('')}</div></div></div>`;
+
+  // файлы
+  const files = `<div class="panel"><div class="panel__h">${sec(icon('folder')+'Файлы')}</div><div class="panel__b"><div class="files">
+    <div class="file"><span class="fn">${s.seqId}_R1.fastq.gz</span><span class="fz">3.9 ГБ</span><a onclick="toast('Скачивание FASTQ')">↓</a></div>
+    <div class="file"><span class="fn">${s.seqId}_R2.fastq.gz</span><span class="fz">3.9 ГБ</span><a onclick="toast('Скачивание FASTQ')">↓</a></div>
+    <div class="file"><span class="fn">${s.seqId}.bam</span><span class="fz">6.1 ГБ</span><a onclick="toast('Скачивание BAM')">↓</a></div>
+    <div class="file"><span class="fn">${s.seqId}.CpG.bedGraph</span><span class="fz">1.4 ГБ</span><a onclick="toast('Скачивание профиля')">↓</a></div>
+    <div class="file"><span class="fn">profile.tsv</span><span class="fz">1.5 ГБ</span><a onclick="toast('Скачивание TSV')">↓</a></div>
+    <div class="file"><span class="fn">QC_${s.seqId}.json</span><span class="fz">~1 КБ</span><a onclick="downloadSampleQc('${s.id}')" title="Скачать qc.json">↓</a></div>
+  </div></div></div>`;
+
+  const heat = `<div class="panel"><div class="panel__h">${sec(icon('dna')+'Наиболее изменённые локусы')}<span class="spacer"></span><a class="btn btn--sm" onclick="toast('Скачивание profile.tsv (полный профиль)')">${icon('download')} полный профиль (TSV)</a></div><div class="panel__b">
+    <div class="faint" style="font-size:12px;margin-bottom:8px">Платформа автоматически рассчитывает отклонение метилирования образца (Δ) относительно усреднённого референса нормы и строит тепловую карту. Референсы нормы и опухоли — это когорты из нескольких образцов (не единичные пробы); способ усреднения по когорте пока обсуждается. Показаны регионы с наибольшим вкладом в оценку модели; полный профиль по ${s.heatmap.N} регионам — в TSV.</div>
+    <div class="tw" id="loci"></div>
+    <details class="dd" style="margin-top:10px"><summary>Тепловая карта по всем регионам (с локализацией)</summary><div id="hm" style="margin-top:8px"></div></details></div></div>`;
+
+  const fb=`<div class="panel"><div class="panel__h">${sec(icon('users')+'Обратная связь')}</div><div class="panel__b"><div id="fbx"></div></div></div>`;
+
+  v.innerHTML = head + meta
+    + `<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:var(--gap)">${qcPanel}${predPanel}</div>`
+    + `<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:var(--gap)">${pipe}${files}</div>`
+    + `<div style="margin-top:var(--gap)">${heat}</div>`
+    + `<div style="margin-top:var(--gap)">${fb}</div>`;
+  v.querySelector('#loci').innerHTML = topLociTable(s.heatmap);
+  v.querySelector('#hm').innerHTML = heatmapLoc(s.heatmap);
+  drawFb(s, v.querySelector('#fbx'));
+}
+function drawFb(s, host){
+  const fb=getFeedback(s);
+  host.innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
+    <div style="font-size:12.5px">Диагноз подтверждён по результатам дообследования?</div>
+    <div class="fb-opts"><label class="fb-opt ${fb.confirmed==='yes'?'on-y':''}"><input type="radio" name="fb" value="yes" ${fb.confirmed==='yes'?'checked':''} style="accent-color:var(--pass)"> да</label>
+      <label class="fb-opt ${fb.confirmed==='no'?'on-n':''}"><input type="radio" name="fb" value="no" ${fb.confirmed==='no'?'checked':''} style="accent-color:var(--fail)"> нет</label></div>
+    <div id="lw" style="${fb.confirmed==='yes'?'':'display:none'}"><select class="sel" id="ls"><option value="">локализация — не указана</option>${CANCER_TYPES.map(t=>`<option value="${t.key}" ${fb.locConfirmed===t.key?'selected':''}>${t.label}</option>`).join('')}</select></div>
+    <textarea class="ta" id="fn" placeholder="комментарий">${escapeHtml(fb.note||'')}</textarea>
+    <div><button class="btn btn--sm btn--pri" id="fsv">сохранить исход</button> ${fb.date?`<span class="faint mono" style="font-size:.7rem">обновлено ${fb.date}</span>`:''}</div></div>`;
+  host.querySelectorAll('input[name="fb"]').forEach(r=>r.addEventListener('change',()=>{ host.querySelector('.fb-opt.on-y')?.classList.remove('on-y'); host.querySelector('.fb-opt.on-n')?.classList.remove('on-n');
+    if(r.value==='yes')r.closest('.fb-opt').classList.add('on-y'); else r.closest('.fb-opt').classList.add('on-n');
+    host.querySelector('#lw').style.display=(host.querySelector('input[name="fb"]:checked')||{}).value==='yes'?'':'none'; }));
+  host.querySelector('#fsv').addEventListener('click',()=>{ const val=(host.querySelector('input[name="fb"]:checked')||{}).value||null; if(!val){ toast('Выберите вариант'); return; }
+    saveFeedback(s.id,{confirmed:val,locConfirmed:host.querySelector('#ls').value,note:host.querySelector('#fn').value,date:'2026-07-10'}); toast('Исход сохранён'); drawFb(s,host); });
+}
+
+/* ================= Заключения ================= */
+function rConcl(v){
+  const done=SAMPLES.filter(s=>s.status==='done'&&s.score);
+  v.innerHTML=`<div class="ph"><h1>Заключения</h1><span class="sub">лабораторные отчёты</span></div>
+    <div class="panel tw"><table class="t"><thead><tr><th>SeqID</th><th>Пациент</th><th>Результат</th><th>Риск</th><th>Дата</th><th></th></tr></thead><tbody>${done.sort((a,b)=>b.id-a.id).map(s=>{ const det=s.score.cancerProb>0.5;
+      return `<tr class="clk" onclick="location.hash='#/report/${s.id}'"><td class="id">${s.seqId}</td><td>${s.fio}</td>
+        <td><span class="st st--${det?'fail':'pass'}">${det?'сигнал обнаружен':'сигнал не обнаружен'}</span></td><td>${riskTag(s.score.risk)}</td>
+        <td class="mono faint">${s.date}</td><td class="right"><a class="mono" style="font-size:11px" href="#/report/${s.id}" onclick="event.stopPropagation()">открыть →</a></td></tr>`; }).join('')}</tbody></table></div>`;
+}
+
+/* ================= Пользователи ================= */
+function rUsers(v){
+  const users=[['Варвара Юхина','vyukhina','Администратор','pass','полный доступ','сегодня, 09:41',true],
+    ['А. Петрова','vsmirnova','Биоинформатик','muted','обработка, пайплайн, QC','сегодня, 08:12',true],
+    ['Даниил Орлов','dorlov','Биоинформатик','muted','обработка, пайплайн','вчера, 19:03',true],
+    ['Зав. лабораторией','headlab','Заведующий лабораторией','med','подпись заключений','вчера, 17:30',true],
+    ['Ольга Лаборант','olab','Лаборант','muted','загрузка и запуск','вчера, 10:05',true],
+    ['Наблюдатель','viewer','Наблюдатель','muted','только просмотр','—',false]];
+  v.innerHTML=`<div class="ph"><h1>Пользователи</h1><span class="sub">доступ и роли</span><span class="spacer"></span><button class="btn btn--sm btn--pri" onclick="toast('Добавление пользователя')">${icon('users')} добавить</button></div>
+    <div class="panel tw"><table class="t"><thead><tr><th>Пользователь</th><th>Логин</th><th>Роль</th><th>Права</th><th>Последний вход</th><th>Статус</th></tr></thead><tbody>${users.map(u=>`<tr>
+      <td>${u[0]}</td><td class="mono faint">${u[1]}</td><td><span class="st st--${u[3]}">${u[2]}</span></td><td class="faint">${u[4]}</td><td class="mono faint">${u[5]}</td>
+      <td>${u[6]?'<span class="st st--pass">активен</span>':'<span class="st st--muted">отключён</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ================= Заключение (reuse) ================= */
+function rReport(v, id, sub){
+  const s=sampleById(id)||SAMPLES.find(x=>x.status==='done'); const variant=sub==='full'?'full':'compact';
+  v.innerHTML = `<div class="hstack" style="display:flex;gap:8px;max-width:210mm;margin:0 auto 10px" class="no-print">
+    <a class="btn btn--sm" href="#/sample/${s.id}">${icon('arrow-left')} к образцу</a><span class="spacer" style="flex:1"></span>
+    <button class="btn btn--sm" onclick="window.print()">${icon('printer')} печать / PDF</button></div>` + buildReportDoc(s, variant);
+}
+
+/* ================= Роутер ================= */
+const ROUTES = { dashboard:['Обзор','dashboard',rDash], storage:['Хранилище','storage',rStorage], processing:['Обработка','processing',rProc], results:['Пациенты','results',rResults],
+  conclusions:['Заключения','conclusions',rConcl], sample:['Образец','results',rSample], report:['Заключение','conclusions',rReport], users:['Пользователи','users',rUsers] };
+function router(){
+  stopT();
+  const h=location.hash.replace(/^#\/?/,''); const p=h.split('/'); let route=p[0], id=p[1], sub=p[2];
+  if(!route||!ROUTES[route]) route='dashboard';
+  const def=ROUTES[route]; shell(def[1], def[0]);
+  const v=document.getElementById('view'); v.innerHTML='';
+  def[2](v, id, sub); window.scrollTo(0,0);
+}
+window.addEventListener('hashchange', router);
+router();
+
+</script>
+</body>
+</html>

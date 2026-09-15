@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EpiPrint · Контроль качества</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="qc">
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar" data-title="Контроль качества"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">Сводка по потоку</div>
+          <h1>Контроль качества</h1>
+          <p>Метрики QC по всем завершённым образцам с порогами Pass/Fail. Fail означает вопросы к пробоподготовке/секвенированию, а не сбой пайплайна.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-4" id="qcStats" style="margin-bottom:16px"></div>
+
+      <div class="toolbar">
+        <div class="segmented" id="filter">
+          <button data-f="all" class="is-active">Все</button>
+          <button data-f="Pass">Pass</button>
+          <button data-f="Fail">Fail</button>
+        </div>
+        <div class="toolbar__spacer"></div>
+        <label class="topbar__search" id="searchLabel" style="min-width:220px">
+          <input class="input" style="border:0;padding:0;width:100%" placeholder="Seq ID…" id="q">
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr>
+              <th>Seq ID</th><th>Итог</th><th>Провалено</th>
+              <th class="num">Конверсия</th><th class="num">Ср. глубина</th><th class="num">Равномерн.</th>
+              <th class="num">CpG ≥5×</th><th class="num">Дупликаты</th><th class="num">Вставка</th>
+              <th class="num">Картир.</th><th class="num">Опух. фр.</th>
+            </tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+  document.getElementById('searchLabel').insertAdjacentHTML('afterbegin', icon('search'));
+  const done = SAMPLES.filter(s=>s.status==='done');
+  let filter='all';
+
+  const passN = done.filter(s=>s.qc.verdict==='Pass').length;
+  const failN = done.length-passN;
+  document.getElementById('qcStats').innerHTML = [
+    ['Завершено образцов', done.length, 'shield-check', 'с рассчитанным QC'],
+    ['Pass', passN, 'circle-check', Math.round(passN/done.length*100)+'% потока'],
+    ['Fail', failN, 'alert-triangle', 'требуют внимания лаборатории'],
+    ['Ср. конверсия', (done.reduce((a,s)=>a+s.qc.metrics[0].value,0)/done.length).toFixed(2)+'%', 'flask', 'бисульфитная конверсия'],
+  ].map(([l,v,ic,sub])=>`<div class="stat"><div class="stat__label"><span class="ic">${icon(ic)}</span>${l}</div><div class="stat__value">${v}</div><div class="stat__sub">${sub}</div></div>`).join('');
+
+  function mv(s,key){ const m=s.qc.metrics.find(x=>x.key===key); return m; }
+  function cell(m){ if(!m) return '<td class="num muted">—</td>'; const col = m.threshold==='справочно'?'var(--ink-2)':m.pass?'var(--ink)':'var(--fail)'; const w=m.pass?'400':'700'; return `<td class="num" style="color:${col};font-weight:${w}">${m.value}${m.unit==='%'?'':''}</td>`; }
+
+  function render(){
+    const q = document.getElementById('q').value.trim().toLowerCase();
+    const list = done.filter(s=> (filter==='all'||s.qc.verdict===filter) && (!q || s.seqId.toLowerCase().includes(q)));
+    const tb = document.getElementById('rows');
+    if (!list.length){ tb.innerHTML=`<tr><td colspan="11" class="tbl__empty">Ничего не найдено</td></tr>`; return; }
+    tb.innerHTML = list.map(s=>`
+      <tr class="clickable" onclick="location.href='sample.html?id=${s.id}'">
+        <td class="id">${s.seqId}</td>
+        <td>${qcBadge(s.qc.verdict)}</td>
+        <td style="font-size:.78rem;color:var(--fail)">${s.qc.failed.length? s.qc.failed.map(f=>f.split(' ').slice(0,2).join(' ')).join(', ') : '<span class="muted">—</span>'}</td>
+        ${cell(mv(s,'conversion'))}
+        ${cell(mv(s,'meanDepth'))}
+        ${cell(mv(s,'uniformity'))}
+        ${cell(mv(s,'cpgCov'))}
+        ${cell(mv(s,'dup'))}
+        ${cell(mv(s,'insert'))}
+        ${cell(mv(s,'mapped'))}
+        ${cell(mv(s,'tumorFrac'))}
+      </tr>`).join('');
+  }
+
+  document.querySelectorAll('#filter button').forEach(b=> b.addEventListener('click', ()=>{
+    document.querySelectorAll('#filter button').forEach(x=>x.classList.remove('is-active'));
+    b.classList.add('is-active'); filter=b.dataset.f; render();
+  }));
+  document.getElementById('q').addEventListener('input', render);
+  render();
+</script>
+</body>
+</html>
